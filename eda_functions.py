@@ -7,6 +7,7 @@ from glob import glob
 import pickle
 import inspect
 import warnings
+import textwrap
 # warnings.simplefilter(action='ignore', category=FutureWarning)
 
 import re
@@ -68,27 +69,28 @@ default_dpi = 120
 #   except NameError as e:
 #     print('Function not defined yet! Please check if you have run the first cell in this notebook.')
 
-def load_census(data_file_name = 'ipums_full_count_nyc_census_decoded_1_percent_sample_20210801.csv', data_folder_path = '/content/drive/Shareddrives/Humanities Research Lab - Shanghai/colab_data/', fields = None):
-  '''Provide the census year you will to load (choose from any year between 1850 - 1940, except for 1890)'''
-
-  filepath = data_folder_path + data_file_name
-
-  print('\nLoading data, this may take a while for full count dataset ...')
+def load_census():
 
   try:
-    if fields is not None:
-        data = pd.read_csv(filepath, nrows = 0)
-        available_fields = data.columns.tolist()
-        valid_fields = []
-        for field in fields:
-            if field not in available_fields:
-                print('The field you requested "'+field+'"" is not in this dataset.')
-            else:
-                valid_fields.append(field)
-        data = pd.read_csv(filepath, usecols = valid_fields)
-    else:
-        data = pd.read_csv(filepath)
 
+    # Setting data folder path
+    data_folder_path = '/content/drive/Shareddrives/Humanities Research Lab - Shanghai/colab_data/'
+
+    # Loading coded data
+    loading_dtype = {'SERIAL': 'int32', 'OCC1950': 'int16', 'IND1950': 'int16', 'YEAR': 'int16', 'YRIMMIG': 'int16', 'BPL': 'int16', 'FBPL': 'int16', 'MBPL': 'int16', 'AGE': 'int16', 'CITIZEN': 'int8', 'EDSCOR50': 'int8', 'EMPSTAT': 'int8', 'EMPSTATD': 'int8', 'FAMSIZE': 'int8', 'FAMUNIT': 'int8', 'HISPAN': 'int8', 'LABFORCE': 'int8', 'LIT': 'int8', 'MARST': 'int8', 'NATIVITY': 'int8', 'OCCSCORE': 'int8', 'PERNUM': 'int8', 'PRESGL': 'int8', 'RACE': 'int8', 'RELATE': 'int8', 'SCHOOL': 'int8', 'SEX': 'int8', 'INCWAGE': 'int32'}
+    data = pd.read_csv(data_folder_path + 'ipums_full_count_nyc_census_coded_10_percent_sample_20210801.csv', dtype=loading_dtype)
+
+    # Decoding data
+    codebook_df = pd.read_csv(data_folder_path + 'IPUMS_variable_codebook_20210801.csv')
+    codebook_df = codebook_df.dropna(subset=['codes'])
+    codebook_df['codes'] = codebook_df['codes'].apply(eval)
+    codebook_df = codebook_df[~codebook_df['variable_name'].isin(['AGE', 'FAMUNIT', 'FAMSIZE'])]
+    variable_name_to_codes_mapping = create_mapping_from_df(codebook_df, 'variable_name', 'codes')
+    for col in data.columns.tolist():
+      if col in  variable_name_to_codes_mapping.keys():
+        data[col] = data[col].map(mapping)
+      else:
+        data[col] = data[col].replace(-1,np.nan)
     print('\nThere are '+str(len(data))+' entries.\n')
     print('Available columns:\n\n')
     print_list(data.columns.tolist())
@@ -951,3 +953,12 @@ def time_now(timezone=None,detail_level='m',hyphen=False):
     output = output.replace('-','')
 
   return output
+
+def explain(col):
+  col = 'AGE'
+  codebook_df = pd.read_csv(data_folder_path + 'IPUMS_variable_codebook_20210801.csv')
+  col_info = codebook_df.loc[codebook_df['variable_name'] == col,:].T.reset_index()
+  col_info.columns = ['key','value']
+  for _, row in col_info.iterrows():
+    print('### '+row['key']+' ###\n\n  ',textwrap.fill(row['value'], 100),'\n')
+  print('### '+'documentation url'+' ###\n\n  ', 'https://usa.ipums.org/usa-action/variables/'+col ,'\n')
