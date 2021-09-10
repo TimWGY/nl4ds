@@ -1,3 +1,5 @@
+from IPython.display import clear_output
+
 # ------------------------------------Import Libraries----------------------------------------
 
 import os
@@ -32,13 +34,46 @@ default_dpi = 120
 
 # -------------------------------------Data Selection----------------------------------------------
 
-def load_census(which_year, fields = None, version_code = 'data_2021_may'):
+# def load_census(which_year, fields = None, version_code = 'data_2021_may'):
+#   '''Provide the census year you will to load (choose from any year between 1850 - 1940, except for 1890)'''
+#   if str(which_year) == '1890':
+#     print('Unfortunately, census records for NYC in 1890 are not available because a fire destroyed the collection. Try other years between 1850 and 1940.')
+#     return None
+#   filepath = '/content/drive/My Drive/'+version_code+'/census_' + str(which_year) + '.csv'
+#   print('\nLoading data for census year '+str(which_year)+'...')
+
+#   try:
+#     if fields is not None:
+#         data = pd.read_csv(filepath, nrows = 0)
+#         available_fields = data.columns.tolist()
+#         valid_fields = []
+#         for field in fields:
+#             if field not in available_fields:
+#                 print(field+' is not in this dataset.')
+#             else:
+#                 valid_fields.append(field)
+#         data = pd.read_csv(filepath, usecols = valid_fields)
+#     else:
+#         data = pd.read_csv(filepath)
+
+
+#     print('\nThere are '+str(len(data))+' entries.\n')
+#     print('Available columns:\n\n')
+#     print_list(data.columns.tolist())
+#     print('\n\n')
+#     return data
+
+#   except FileNotFoundError as e:
+#     print('File Not Found! Please contact Tim at gw923@nyu.edu for acccess to certain datasets.')
+#   except NameError as e:
+#     print('Function not defined yet! Please check if you have run the first cell in this notebook.')
+
+def load_census(data_file_name = 'ipums_full_count_nyc_census_decoded_1_percent_sample_20210801.csv', data_folder_path = '/content/drive/Shareddrives/Humanities Research Lab - Shanghai/colab_data/', fields = None):
   '''Provide the census year you will to load (choose from any year between 1850 - 1940, except for 1890)'''
-  if str(which_year) == '1890':
-    print('Unfortunately, census records for NYC in 1890 are not available because a fire destroyed the collection. Try other years between 1850 and 1940.')
-    return None
-  filepath = '/content/drive/My Drive/'+version_code+'/census_' + str(which_year) + '.csv'
-  print('\nLoading data for census year '+str(which_year)+'...')
+
+  filepath = data_folder_path + data_file_name
+
+  print('\nLoading data, this may take a while for full count dataset ...')
 
   try:
     if fields is not None:
@@ -47,13 +82,12 @@ def load_census(which_year, fields = None, version_code = 'data_2021_may'):
         valid_fields = []
         for field in fields:
             if field not in available_fields:
-                print(field+' is not in this dataset.')
+                print('The field you requested "'+field+'"" is not in this dataset.')
             else:
                 valid_fields.append(field)
         data = pd.read_csv(filepath, usecols = valid_fields)
     else:
         data = pd.read_csv(filepath)
-
 
     print('\nThere are '+str(len(data))+' entries.\n')
     print('Available columns:\n\n')
@@ -66,6 +100,21 @@ def load_census(which_year, fields = None, version_code = 'data_2021_may'):
   except NameError as e:
     print('Function not defined yet! Please check if you have run the first cell in this notebook.')
 
+def see_value_options(data, col, top_k = None):
+  val_cnt = data[col].value_counts()
+  val_cnt = val_cnt/len(data)
+  val_cnt_df = val_cnt.rename('freq_in_percentage').reset_index()
+  rare_value_shown = False
+  for i, row in val_cnt_df.iterrows():
+    if i == top_k:
+      break
+    print(row['index'], end='')
+    if row['freq_in_percentage']<0.01:
+      rare_value_shown = True
+      print('*',end='')
+    print(', ')
+    if rare_value_shown:
+      print('\n"*" means that the relative frequency of this value is below 1%.')
 
 def check_parenthesis_and_replace_comma_within_parenthesis(string):
 
