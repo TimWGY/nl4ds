@@ -103,18 +103,11 @@ def load_census(data_file_name = 'ipums_full_count_nyc_census_decoded_1_percent_
 def see_value_options(data, col, top_k = None):
   val_cnt = data[col].value_counts()
   val_cnt = val_cnt/len(data)
-  val_cnt_df = val_cnt.rename('freq_in_percentage').reset_index()
-  rare_value_shown = False
-  for i, row in val_cnt_df.iterrows():
-    if i == top_k:
-      break
-    print(row['index'], end='')
-    if row['freq_in_percentage']<0.01:
-      rare_value_shown = True
-      print('*',end='')
-    print(', ')
-  if rare_value_shown:
-    print('\n"*" means that the relative frequency of this value is below 1%.')
+  val_cnt_df = val_cnt.rename('Proportion').reset_index().rename(columns={'index':'Value'})
+  val_cnt_df['Proportion'] = np.round(val_cnt_df['Proportion']*100, 2)
+  if top_k:
+    val_cnt_df = val_cnt_df[:top_k]
+  return val_cnt_df
 
 def check_parenthesis_and_replace_comma_within_parenthesis(string):
 
