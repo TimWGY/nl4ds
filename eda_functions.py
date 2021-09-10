@@ -113,8 +113,8 @@ def see_value_options(data, col, top_k = None):
       rare_value_shown = True
       print('*',end='')
     print(', ')
-    if rare_value_shown:
-      print('\n"*" means that the relative frequency of this value is below 1%.')
+  if rare_value_shown:
+    print('\n"*" means that the relative frequency of this value is below 1%.')
 
 def check_parenthesis_and_replace_comma_within_parenthesis(string):
 
