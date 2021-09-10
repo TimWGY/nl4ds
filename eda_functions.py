@@ -217,13 +217,13 @@ def get_multiple_criteria(string, data):
   return combined_filter
 
 
-def select(criteria_string, data):
+def select(data, criteria_string):
   '''Provide a comma separated criteria_string, and specify which dataframe (df) to select from'''
   data = data.reset_index(drop=True).copy()
   criteria_filter = get_multiple_criteria(criteria_string, data)
   return data[criteria_filter].copy()
 
-def select_data(criteria_string, data):
+def select_data(data, criteria_string):
   '''Older name for the select fucntion, plan to retire the old name gradually, keeping this to support older codes'''
   return select(criteria_string, data)
 
@@ -328,7 +328,7 @@ def filter_and_change_values(data, orig_col, contain = '', not_contain = '', cha
 
 # -------------------------------------Smart Data Description-------------------------------------------
 
-def describe(col, data, top_k=-1, thres=90, return_full=False, plot_top_k=-1, plot_type='', bins=-1, show_graph = True, year = None):
+def describe(data, col, top_k=-1, thres=90, return_full=False, plot_top_k=-1, plot_type='', bins=-1, show_graph = True, year = None):
 
   year_info = (" - Year "+str(year)) if year is not None else ""
 
