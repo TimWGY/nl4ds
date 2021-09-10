@@ -88,7 +88,7 @@ def load_census():
     variable_name_to_codes_mapping = create_mapping_from_df(codebook_df, 'variable_name', 'codes')
     for col in data.columns.tolist():
       if col in  variable_name_to_codes_mapping.keys():
-        data[col] = data[col].map(mapping)
+        data[col] = data[col].map(variable_name_to_codes_mapping[col])
       else:
         data[col] = data[col].replace(-1,np.nan)
     print('\nThere are '+str(len(data))+' entries.\n')
