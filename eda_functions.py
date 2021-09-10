@@ -100,11 +100,13 @@ def load_census(data_file_name = 'ipums_full_count_nyc_census_decoded_1_percent_
   except NameError as e:
     print('Function not defined yet! Please check if you have run the first cell in this notebook.')
 
-def see_value_options(data, col, top_k = None):
+def see_value_options(data, col, sort = False, top_k = None):
   val_cnt = data[col].value_counts()
   val_cnt = val_cnt/len(data)
   val_cnt_df = val_cnt.rename('Proportion').reset_index().rename(columns={'index':'Value'})
   val_cnt_df['Proportion'] = np.round(val_cnt_df['Proportion']*100, 2)
+  if sort:
+    val_cnt_df = val_cnt_df.sort_values('Value').reset_index(drop=True)
   if top_k:
     val_cnt_df = val_cnt_df[:top_k]
   return val_cnt_df
