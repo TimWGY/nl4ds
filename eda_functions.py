@@ -956,7 +956,6 @@ def time_now(timezone=None,detail_level='m',hyphen=False):
   return output
 
 def explain(col):
-  col = 'AGE'
   codebook_df = pd.read_csv(data_folder_path + 'IPUMS_variable_codebook_20210801.csv')
   col_info = codebook_df.loc[codebook_df['variable_name'] == col,:].T.reset_index()
   col_info.columns = ['key','value']
