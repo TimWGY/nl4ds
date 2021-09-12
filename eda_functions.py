@@ -74,7 +74,7 @@ def load_census():
   try:
 
     # Setting data folder path
-    data_folder_path = '/content/drive/Shareddrives/Humanities Research Lab - Shanghai/colab_data/'
+    data_folder_path = '/content/drive/Shareddrives/Humanities Research Lab - Shanghai/colab_playground/playground_data/'
 
     # Loading coded data
     loading_dtype = {'SERIAL': 'int32', 'OCC1950': 'int16', 'IND1950': 'int16', 'YEAR': 'int16', 'YRIMMIG': 'int16', 'BPL': 'int16', 'FBPL': 'int16', 'MBPL': 'int16', 'AGE': 'int16', 'CITIZEN': 'int8', 'EDSCOR50': 'int8', 'EMPSTAT': 'int8', 'EMPSTATD': 'int8', 'FAMSIZE': 'int8', 'FAMUNIT': 'int8', 'HISPAN': 'int8', 'LABFORCE': 'int8', 'LIT': 'int8', 'MARST': 'int8', 'NATIVITY': 'int8', 'OCCSCORE': 'int8', 'PERNUM': 'int8', 'PRESGL': 'int8', 'RACE': 'int8', 'RELATE': 'int8', 'SCHOOL': 'int8', 'SEX': 'int8', 'INCWAGE': 'int32'}
