@@ -92,6 +92,7 @@ def load_census():
         data[col] = data[col].map(variable_name_to_codes_mapping[col])
       else:
         data[col] = data[col].replace(-1,np.nan)
+    print('\nThis is a 10% sample of the full count data due to computing and storage limit.\n ')
     print('\nThere are '+str(len(data))+' entries.\n')
     print('Available columns:\n\n')
     print_list(data.columns.tolist())
