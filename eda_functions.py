@@ -960,5 +960,5 @@ def explain(col):
   col_info = codebook_df.loc[codebook_df['variable_name'] == col,:].T.reset_index()
   col_info.columns = ['key','value']
   for _, row in col_info.iterrows():
-    print('### '+row['key']+' ###\n\n  ',textwrap.fill(row['value'], 100),'\n')
+    print('### '+row['key']+' ###\n\n  ',textwrap.fill(row['value'][:600], 100),'\n')
   print('### '+'documentation url'+' ###\n\n  ', 'https://usa.ipums.org/usa-action/variables/'+col ,'\n')
