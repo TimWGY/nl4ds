@@ -73,13 +73,13 @@ data_folder_path = '/content/drive/Shareddrives/Humanities Research Lab - Shangh
 #   except NameError as e:
 #     print('Function not defined yet! Please check if you have run the first cell in this notebook.')
 
-def load_census():
+def load_census(filename='ipums_full_count_nyc_census_coded_10_percent_sample_20210801.csv'):
 
   try:
 
     # Loading coded data
     loading_dtype = {'SERIAL': 'int32', 'OCC1950': 'int16', 'IND1950': 'int16', 'YEAR': 'int16', 'YRIMMIG': 'int16', 'BPL': 'int16', 'FBPL': 'int16', 'MBPL': 'int16', 'AGE': 'int16', 'CITIZEN': 'int8', 'EDSCOR50': 'int8', 'EMPSTAT': 'int8', 'EMPSTATD': 'int8', 'FAMSIZE': 'int8', 'FAMUNIT': 'int8', 'HISPAN': 'int8', 'LABFORCE': 'int8', 'LIT': 'int8', 'MARST': 'int8', 'NATIVITY': 'int8', 'OCCSCORE': 'int8', 'PERNUM': 'int8', 'PRESGL': 'int8', 'RACE': 'int8', 'RELATE': 'int8', 'SCHOOL': 'int8', 'SEX': 'int8', 'INCWAGE': 'int32'}
-    data = pd.read_csv(data_folder_path + 'ipums_full_count_nyc_census_coded_10_percent_sample_20210801.csv', dtype=loading_dtype)
+    data = pd.read_csv(data_folder_path + filename, dtype=loading_dtype)
 
     # Decoding data
     codebook_df = pd.read_csv(data_folder_path + 'IPUMS_variable_codebook_20210801.csv')
