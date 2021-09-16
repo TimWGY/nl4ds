@@ -747,9 +747,12 @@ def extract_contents(soup, path, verbose = True):
         print('\nExtracting contents ...\n')
 
     if path.startswith('HEADER:'):
-        tables = pd.read_html(str(soup))
-        target_table = [table for table in tables if str(tuple(table.columns.tolist())) == path.replace('HEADER:','')][0]
-        return target_table
+        try:
+            tables = pd.read_html(str(soup))
+            target_table = [table for table in tables if str(tuple(table.columns.tolist())) == path.replace('HEADER:','')][0]
+            return target_table
+        except:
+            return []
 
     target_elements = soup.select(path)
 
