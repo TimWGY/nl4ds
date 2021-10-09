@@ -73,13 +73,13 @@ data_folder_path = '/content/drive/Shareddrives/Humanities Research Lab - Shangh
 #   except NameError as e:
 #     print('Function not defined yet! Please check if you have run the first cell in this notebook.')
 
-def load_census(filename='ipums_full_count_nyc_census_coded_10_percent_sample_20210801.csv'):
+def load_census():
 
   try:
 
     # Loading coded data
     loading_dtype = {'SERIAL': 'int32', 'OCC1950': 'int16', 'IND1950': 'int16', 'YEAR': 'int16', 'YRIMMIG': 'int16', 'BPL': 'int16', 'FBPL': 'int16', 'MBPL': 'int16', 'AGE': 'int16', 'CITIZEN': 'int8', 'EDSCOR50': 'int8', 'EMPSTAT': 'int8', 'EMPSTATD': 'int8', 'FAMSIZE': 'int8', 'FAMUNIT': 'int8', 'HISPAN': 'int8', 'LABFORCE': 'int8', 'LIT': 'int8', 'MARST': 'int8', 'NATIVITY': 'int8', 'OCCSCORE': 'int8', 'PERNUM': 'int8', 'PRESGL': 'int8', 'RACE': 'int8', 'RELATE': 'int8', 'SCHOOL': 'int8', 'SEX': 'int8', 'INCWAGE': 'int32'}
-    data = pd.read_csv(data_folder_path + filename, dtype=loading_dtype)
+    data = pd.read_csv(data_folder_path + 'ipums_full_count_nyc_census_coded_10_percent_sample_20210801.csv', dtype=loading_dtype)
 
     # Decoding data
     codebook_df = pd.read_csv(data_folder_path + 'IPUMS_variable_codebook_20210801.csv')
@@ -92,10 +92,7 @@ def load_census(filename='ipums_full_count_nyc_census_coded_10_percent_sample_20
         data[col] = data[col].map(variable_name_to_codes_mapping[col])
       else:
         data[col] = data[col].replace(-1,np.nan)
-    if filename=='ipums_full_count_nyc_census_coded_10_percent_sample_20210801.csv':
-      print('\nThis is a 10% sample of the full count data due to computing and storage limit.\n ')
-    if filename=='ipums_full_count_nyc_census_coded_20210801.csv':
-      print('\nThis is the full count data. Due to the size of the data, you may crash the session if you create too many subsets or create complex visualizations. Try load_census() without parameter to load 10% instead.\n ')
+    print('\nThis is a 10% sample of the full count data due to computing and storage limit.\n ')
     print('\nThere are '+str(len(data))+' entries.\n')
     print('Available columns:\n\n')
     print_list(data.columns.tolist())
