@@ -67,6 +67,7 @@ def pre_post_intervention_test_single_field(df, field_name, test_type=stats.mann
 def pre_post_intervention_test(df, field_names, test_type=stats.mannwhitneyu, significance_threshold=0.1, group_field='group', group_indicator=('control', 'intervention'), pre_post_indicator=('pre_', 'post_')):
   if isinstance(field_names, str):
     field_names = [field_names]
+  field_names = sorted(field_names)
   for field_name in field_names:
     pre_diff_sig_or_not, post_diff_sig_or_not = pre_post_intervention_test_single_field(df, field_name, test_type=test_type, significance_threshold=significance_threshold, group_field=group_field, group_indicator=group_indicator, pre_post_indicator=pre_post_indicator)
     print('\n--------------------------------------------\n')
@@ -134,7 +135,7 @@ def show_corr(data, cols, title=None):
   for pair in get_combinations_of_two(corr_columns):
     p_value = get_correlation_significance(data_df, * pair)
     if p_value < 0.05:
-      print(pair, p_value)
+      print('  |  '.join(pair), '   p_value:', round(p_value, 4))
       highlight_position_1 = (corr_columns.index(pair[0]), corr_columns.index(pair[1]))
       highlight_position_2 = (corr_columns.index(pair[1]), corr_columns.index(pair[0]))
       edgecolor = 'gold' if p_value < 0.01 else 'brown'
