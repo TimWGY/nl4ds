@@ -138,3 +138,4 @@ def show_corr(data, cols, title = None):
       g.add_patch(Rectangle(highlight_position_2, 1, 1, fill=False, edgecolor=edgecolor, lw=lw))
 
 
+clear_output()
