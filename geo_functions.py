@@ -12,7 +12,7 @@ def show_map(data):
 
   orig_data_length = len(data)
   data = data.dropna(subset=['coordinates'])
-  print(orig_data_length - len(data), 'records are dropped due to lack of cooridnates data.')
+  print(orig_data_length - len(data), 'out of', len(data), 'records are dropped due to the lack of cooridnates data.')
 
   # aerial
   # tile_style = 'https://maps.nyc.gov/xyz/1.0.0/photo/1924/{z}/{x}/{y}.png8'
