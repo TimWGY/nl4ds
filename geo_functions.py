@@ -27,6 +27,6 @@ def show_map(data):
   place_type_to_color_mapping = {'Home': 'green', 'Restaurant': 'orangered', 'Non-restaurant Business': 'blue'}
 
   for _, row in data.iterrows():
-    folium.Circle(row['coordinates'], radius=1, color=place_type_to_color_mapping.get(row['place_type'], 'grey'), tooltip=f"Name: {row['Name FULL']}<br>Address: {row['Address']}<br>Type: {row['place_type']}<br>HBCR: {row['HBCR']}<br>Year: {int(row['YR'])}<br>FID: {int(row['FID'])}").add_to(m)
+    folium.Circle(row['coordinates'], radius=1, color=place_type_to_color_mapping.get(row['place_type'], 'gold'), tooltip=f"Name: {row['Name FULL']}<br>Address: {row['Address']}<br>Type: {row['place_type']}<br>HBCR: {row['HBCR']}<br>Year: {int(row['YR'])}<br>FID: {int(row['FID'])}").add_to(m)
 
   return m
