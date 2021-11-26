@@ -5,6 +5,9 @@ from IPython.display import clear_output
 # pip install folium
 import folium
 
+import pandas as pd
+import numpy as np
+
 def show_map(data):
 
   orig_data_length = len(data)
