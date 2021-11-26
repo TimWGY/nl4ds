@@ -8,7 +8,7 @@ import folium
 def show_map(data):
 
   orig_data_length = len(data)
-  data = df.dropna(subset=['coordinates'])
+  data = data.dropna(subset=['coordinates'])
   print(orig_data_length - len(data), 'records are dropped due to lack of cooridnates data.')
 
   # aerial
