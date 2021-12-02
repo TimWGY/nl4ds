@@ -2,9 +2,7 @@ from IPython.display import clear_output
 
 # ------------------------------------Import Libraries----------------------------------------
 
-# pip install folium
-import folium
-
+import os
 import pandas as pd
 import numpy as np
 
@@ -58,16 +56,16 @@ def load_and_prep_address_of_nyc_chinese_dataset():
 import ast
 street_segment_df = pd.read_csv(playground_data_folder_path + 'hnyc_street_segment_1910_v20211125.csv', converters={'building_num_range': ast.literal_eval, 'start_end_coordinates': ast.literal_eval})
 
-!pip install thefuzz - -quiet
+os.system('pip install thefuzz')
 from thefuzz import process
 from thefuzz import fuzz
-!pip install tqdm - -quiet
+os.system('pip install tqdm')
 from tqdm import tqdm
 tqdm.pandas()
 
-!pip install geopy - -quiet
+os.system('pip install geopy')
 from geopy.distance import distance
-!pip install geographiclib - -quiet
+os.system('pip install geographiclib')
 from geographiclib.geodesic import Geodesic
 geod = Geodesic.WGS84
 
@@ -156,7 +154,6 @@ def get_gecoded_nyc_chinese_dataset():
   geocoded_df = historical_geocode(df, street_1910)
   df = add_back_non_geocodable_part(geocoded_df, raw)
   return df
-
 
 # pip install folium
 import folium
