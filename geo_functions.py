@@ -57,6 +57,7 @@ def load_and_prep_address_of_nyc_chinese_dataset():
 import ast
 street_segment_df = pd.read_csv(playground_data_folder_path + 'hnyc_street_segment_1910_v20211125.csv', converters={'building_num_range': ast.literal_eval, 'start_end_coordinates': ast.literal_eval})
 
+os.system('pip install python-Levenshtein')
 os.system('pip install thefuzz')
 from thefuzz import process
 from thefuzz import fuzz
@@ -152,7 +153,7 @@ def add_back_non_geocodable_part(df, raw):
 
 def get_gecoded_nyc_chinese_dataset():
   df, raw = load_and_prep_address_of_nyc_chinese_dataset()
-  geocoded_df = historical_geocode(df, street_1910)
+  geocoded_df = historical_geocode(df, street_segment_df)
   df = add_back_non_geocodable_part(geocoded_df, raw)
   return df
 
