@@ -128,6 +128,8 @@ def resize_img(img_path, target_size):
   out_img_path = re.sub(r'(000)(_|\.)', r'k\2', out_img_path)
   if not os.path.exists(out_img_path):
     resized_img = cv2.resize(img, (target_size, target_size))
+    if len(img_shape) == 3:
+      resized_img = cv2.cvtColor(resized_img, cv2.COLOR_BGR2RGB)
     im = Image.fromarray(resized_img)
     im.save(out_img_path)
     return out_img_path
