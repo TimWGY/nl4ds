@@ -157,6 +157,9 @@ def ms_ocr(img_path):
   if not os.path.exists(raw_ocr_result_filepath):
     result = get_ms_ocr_result(img_path)
     save_dict_to_json(result, raw_ocr_result_filepath)
+  else:
+    print('Raw OCR result found.')
+    result = read_dict_from_json(raw_ocr_result_filepath)
 
   ocr_result_table_filepath = img_path.split('.')[0] + '_ocr_result_table.csv'
   if not os.path.exists(ocr_result_table_filepath):
