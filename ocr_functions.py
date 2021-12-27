@@ -94,11 +94,11 @@ def parse_ms_ocr_result(ms_ocr_result, return_words=True, confidence_threshold=0
 
   return components_df
 
-def mark_ms_ocr_result(image_file_path, components_df, fontsize=10, filename=''):
+def mark_ms_ocr_result(image_file_path, components_df, filename='', fontsize=10,  figsize=(20,20), dpi=150):
 
   image = Image.open(image_file_path)
 
-  plt.figure(figsize=(20, 20), dpi=150)
+  plt.figure(figsize=figsize, dpi=dpi)
   ax = plt.imshow(image, cmap=cm.gray)
 
   polygons = []
@@ -167,7 +167,7 @@ def read_dict_from_json(filepath):
     dic = json.load(f)
   return dic
 
-def ms_ocr(img_path, show_numeric = False, fontsize = 10):
+def ms_ocr(img_path, show_numeric = False, fontsize = 10, figsize = (20,20), dpi = 150):
 
   raw_ocr_result_filepath = img_path.split('.')[0] + '_raw_ocr_result.txt'
   if not os.path.exists(raw_ocr_result_filepath):
@@ -190,7 +190,7 @@ def ms_ocr(img_path, show_numeric = False, fontsize = 10):
     comp_df = comp_df[~(comp_df['text'].str.isnumeric())]
 
   ocr_result_marked_img_path = img_path.split('.')[0] + '_ocr_result_marked_img.' + img_path.split('.')[1]
-  mark_ms_ocr_result(img_path, comp_df, fontsize=fontsize, filename=ocr_result_marked_img_path)
+  mark_ms_ocr_result(img_path, comp_df, filename=ocr_result_marked_img_path, fontsize=fontsize, figsize=figsize, dpi=dpi)
 
 ######################################################################################
 
