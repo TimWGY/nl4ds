@@ -243,6 +243,7 @@ def cut_tiff_into_pngs(path, window_side_length, window_stride = None, output_di
       im.save(output_path)
       cutted_image_filepath_list.append(output_path)
 
+  cutted_image_filepath_list = sorted(set(cutted_image_filepath_list))
   return cutted_image_filepath_list
 
 
