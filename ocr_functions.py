@@ -167,7 +167,7 @@ def read_dict_from_json(filepath):
     dic = json.load(f)
   return dic
 
-def ms_ocr(img_path):
+def ms_ocr(img_path, show_numeric = False, fontsize = 10):
 
   raw_ocr_result_filepath = img_path.split('.')[0] + '_raw_ocr_result.txt'
   if not os.path.exists(raw_ocr_result_filepath):
@@ -186,8 +186,11 @@ def ms_ocr(img_path):
     comp_df = pd.read_csv(ocr_result_table_filepath)
     comp_df['bounding_box'] = comp_df['bounding_box'].apply(ast.literal_eval)
 
+  if show_numeric:
+    comp_df = comp_df[~(comp_df['text'].str.isnumeric())]
+
   ocr_result_marked_img_path = img_path.split('.')[0] + '_ocr_result_marked_img.' + img_path.split('.')[1]
-  mark_ms_ocr_result(img_path, comp_df, fontsize=10, filename=ocr_result_marked_img_path)
+  mark_ms_ocr_result(img_path, comp_df, fontsize=fontsize, filename=ocr_result_marked_img_path)
 
 ######################################################################################
 
