@@ -186,7 +186,7 @@ def ms_ocr(img_path, show_numeric = False, fontsize = 10):
     comp_df = pd.read_csv(ocr_result_table_filepath)
     comp_df['bounding_box'] = comp_df['bounding_box'].apply(ast.literal_eval)
 
-  if show_numeric:
+  if not show_numeric:
     comp_df = comp_df[~(comp_df['text'].str.isnumeric())]
 
   ocr_result_marked_img_path = img_path.split('.')[0] + '_ocr_result_marked_img.' + img_path.split('.')[1]
