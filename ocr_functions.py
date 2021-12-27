@@ -2,8 +2,10 @@ from IPython.display import clear_output
 
 import pandas as pd
 import numpy as np
-from matplotlib import pyplot as plt
 from matplotlib import cm
+from matplotlib.patches import Polygon
+from matplotlib import pyplot as plt
+plt.rcParams["font.serif"] = "cmr10"
 
 import os
 from glob import glob
@@ -13,7 +15,13 @@ import ast
 
 import time
 from PIL import Image
-from matplotlib.patches import Polygon
+
+os.system('pip install Rasterio')
+import rasterio
+from rasterio.windows import Window
+
+os.system('pip install tqdm')
+from tqdm import tqdm
 
 os.system('pip install --upgrade azure-cognitiveservices-vision-computervision')
 clear_output()
@@ -24,6 +32,12 @@ from msrest.authentication import CognitiveServicesCredentials
 computervision_client = ComputerVisionClient(input('\nEndpoint?\n'), CognitiveServicesCredentials(input('\nKey?\n')))
 clear_output()
 
+####################################
+
+
+
+
+####################################
 
 def flatten_list(l):
   return [item for sublist in l for item in sublist]
@@ -176,3 +190,56 @@ def ms_ocr(img_path):
   mark_ms_ocr_result(img_path, comp_df, fontsize=10, filename=ocr_result_marked_img_path)
 
 ######################################################################################
+
+def cut_tiff_into_pngs(path, window_side_length, window_stride = None, output_directory_path = None):
+
+  cutted_image_filepath_list = []
+
+  if window_stride is None:
+    window_stride = window_side_length//2
+
+  dataset = rasterio.open(path)
+  dataset_name = dataset.name.split('/')[-1].split('.')[0]
+  if output_directory_path is None:
+    output_directory_path = '/'.join(path.split('/')[:-1]) +'/'+ dataset_name+'__wsl_'+str(window_side_length)+'_ws_'+str(window_stride)
+  else:
+    output_directory_path = output_directory_path.rstrip('/')
+
+  if not os.path.exists(output_directory_path):
+    os.mkdir(output_directory_path)
+  else:
+    raise ValueError("[Error] Output directory already exists, please check and resolve.")
+
+  print(dataset.meta)
+  with open(output_directory_path +'/'+ 'metadata.txt', 'w') as f:
+    f.write(str(dataset.meta))
+
+  dataset_band_count = dataset.count
+  dataset_width = dataset.width
+  dataset_height = dataset.height
+  window_width_indices = range(dataset_width//window_stride+1)
+  window_height_indices = range(dataset_height//window_stride+1)
+  
+  offset_pair_list = []
+  for window_width_index in window_width_indices:
+    col_off = window_width_index * window_stride
+    col_off = col_off if col_off + window_side_length <= dataset_width else dataset_width - window_side_length
+    for window_height_index in window_height_indices:
+      row_off = window_height_index * window_stride
+      row_off = row_off if row_off + window_side_length <= dataset_height else dataset_height - window_side_length
+      offset_pair_list.append((col_off, row_off))
+
+  for col_off, row_off in tqdm(offset_pair_list):
+    bands = []
+    for band_index in range(1,dataset_band_count+1):
+      bands.append( dataset.read(band_index, window = Window(col_off, row_off, window_side_length, window_side_length)) )
+    window_img = np.stack(bands, axis=2)
+    if window_img[:,:,0].sum() != 0:
+      im = Image.fromarray(window_img)
+      output_path = output_directory_path +'/'+ dataset_name+'_xoff'+str(col_off)+'_yoff'+str(row_off)+'_wsl_'+str(window_side_length)+'.png'
+      im.save(output_path)
+      cutted_image_filepath_list.append(output_path)
+
+  return cutted_image_filepath_list
+
+
