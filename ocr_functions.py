@@ -187,10 +187,8 @@ def ms_ocr(img_path, mark_image = True, show_numeric = False, fontsize = 10, fig
     comp_df['bounding_box'] = comp_df['bounding_box'].apply(ast.literal_eval)
 
   if mark_image:
-   
     if not show_numeric:
       comp_df = comp_df[~(comp_df['text'].str.isnumeric())]
-
     ocr_result_marked_img_path = img_path.split('.')[0] + '_ocr_result_marked_img.' + img_path.split('.')[1]
     mark_ms_ocr_result(img_path, comp_df, filename=ocr_result_marked_img_path, fontsize=fontsize, figsize=figsize, dpi=dpi)
 
