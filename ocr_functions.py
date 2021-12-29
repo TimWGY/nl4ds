@@ -23,6 +23,8 @@ from rasterio.windows import Window
 os.system('pip install tqdm')
 from tqdm import tqdm
 
+os.system('pip install pyproj')
+
 os.system('pip install --upgrade azure-cognitiveservices-vision-computervision')
 clear_output()
 from azure.cognitiveservices.vision.computervision import ComputerVisionClient
@@ -31,10 +33,6 @@ from msrest.authentication import CognitiveServicesCredentials
 
 computervision_client = ComputerVisionClient(input('\nEndpoint?\n'), CognitiveServicesCredentials(input('\nKey?\n')))
 clear_output()
-
-####################################
-
-
 
 
 ####################################
@@ -246,4 +244,60 @@ def cut_tiff_into_pngs(path, window_side_length, window_stride = None, output_di
   cutted_image_filepath_list = sorted(set(cutted_image_filepath_list))
   return cutted_image_filepath_list
 
+######################################################################################
 
+def get_corners_of_geotiff(dataset):
+  h, w = dataset.shape
+  transform_matrix = dataset.transform
+  geo_point_list = [tuple([float(x) for x in np.round(transform_matrix * point,6)]) for point in [(0,0), (0,h), (w,h), (w,0), (0,0)]]
+  return geo_point_list
+
+
+import pyproj
+from pyproj import Geod
+from shapely.geometry import Polygon
+
+def get_area_size_from_geo_point_list(geo_point_list):
+  """Input: geo_point_list in format of [(lon, lat), ...]
+  Output: size of area in m^2
+  # Reference: https://stackoverflow.com/questions/68118907/shapely-pyproj-find-area-in-m2-of-a-polygon-created-from-latitude-and-longi
+  """
+  polygon = Polygon(geo_point_list)
+  geod = Geod(ellps="WGS84")
+  poly_area, poly_perimeter = geod.geometry_area_perimeter(polygon)
+  return int(poly_area)
+
+def calculate_area_per_pixel(raw_image_filepath):
+  dataset = rasterio.open(raw_image_filepath)
+  image_pixel_area_size = dataset.shape[0]*dataset.shape[1]
+  image_geo_area_size = get_area_size_from_geo_point_list(get_corners_of_geotiff(dataset))
+  area_per_pixel = image_geo_area_size/image_pixel_area_size
+  area_per_pixel = round(area_per_pixel,6)
+  return area_per_pixel
+
+def calculate_area_per_pixel_list(orig_tif_filepaths, verbose = False):
+  area_per_pixel_list = []
+  for raw_image_index in tqdm(range(0, len(orig_tif_filepaths))):
+    raw_image_filepath = orig_tif_filepaths[raw_image_index]
+    if verbose:
+      print('------------------- raw image index '+str(raw_image_index)+' -------------------')
+      print(raw_image_filepath.split('/')[-1])
+    area_per_pixel = calculate_area_per_pixel(raw_image_filepath)
+    if verbose:
+      print('area_per_pixel:', area_per_pixel)
+    area_per_pixel_list.append(area_per_pixel)
+  return area_per_pixel_list
+
+def reject_outliers(data, m = 2.):
+  # Reference: https://stackoverflow.com/a/16562028
+  data = np.array(data)
+  d = np.abs(data - np.median(data))
+  mdev = np.median(d)
+  s = d/mdev if mdev else 0.
+  return data[s<m]
+
+def get_outlier_bounds(data, m = 2.):
+  data = np.array(data)
+  data_without_outlier = reject_outliers(data, m = m)
+  return data_without_outlier.min(), data_without_outlier.max()
+  
