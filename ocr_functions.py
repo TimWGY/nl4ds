@@ -245,10 +245,8 @@ def cut_tiff_into_pngs(path, window_side_length, window_stride = None, output_di
 
 ######################################################################################
 
-def get_corners_of_geotiff(dataset):
-  h, w = dataset.shape
-  transform_matrix = dataset.transform
-  geo_point_list = [tuple([float(x) for x in np.round(transform_matrix * point,6)]) for point in [(0,0), (0,h), (w,h), (w,0), (0,0)]]
+def get_geo_points_of_the_corners_of_image(dataset):
+  
   return geo_point_list
 
 
@@ -267,17 +265,27 @@ def get_area_size_from_geo_point_list(geo_point_list):
   return int(poly_area)
 
 def calculate_area_per_pixel(raw_image_filepath):
-  dataset = rasterio.open(raw_image_filepath)
-  image_pixel_area_size = dataset.shape[0]*dataset.shape[1]
-  image_geo_area_size = get_area_size_from_geo_point_list(get_corners_of_geotiff(dataset))
+  if raw_image_filepath.endswith('.tif'):
+    dataset = rasterio.open(raw_image_filepath)
+    transform_matrix = dataset.transform
+  elif raw_image_filepath.endswith('.png'):
+    dataset = cv2.imread(raw_image_filepath)
+    transform_matrix = create_transform_matrix(read_geotransform_parameters(raw_image_filepath.replace('.png','.png.aux.xml')))
+
+  h, w = dataset.shape[0], dataset.shape[1]
+  image_pixel_area_size = w*h
+  corner_geo_point_list = [tuple([float(x) for x in np.round(transform_matrix * point,6)]) for point in [(0,0), (0,h), (w,h), (w,0), (0,0)]]
+
+  image_geo_area_size = get_area_size_from_geo_point_list(corner_geo_point_list)
+
   area_per_pixel = image_geo_area_size/image_pixel_area_size
   area_per_pixel = round(area_per_pixel,6)
   return area_per_pixel
 
-def calculate_area_per_pixel_list(orig_tif_filepaths, verbose = False):
+def calculate_area_per_pixel_list(raw_image_filepaths, verbose = False):
   area_per_pixel_list = []
-  for raw_image_index in tqdm(range(0, len(orig_tif_filepaths))):
-    raw_image_filepath = orig_tif_filepaths[raw_image_index]
+  for raw_image_index in tqdm(range(0, len(raw_image_filepaths))):
+    raw_image_filepath = raw_image_filepaths[raw_image_index]
     if verbose:
       print('------------------- raw image index '+str(raw_image_index)+' -------------------')
       print(raw_image_filepath.split('/')[-1])
