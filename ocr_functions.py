@@ -14,11 +14,14 @@ from collections import Counter
 import ast
 
 import time
+
 from PIL import Image
+import cv2
 
 os.system('pip install Rasterio')
 import rasterio
 from rasterio.windows import Window
+from rasterio.transform import Affine
 
 os.system('pip install tqdm')
 from tqdm import tqdm
@@ -115,9 +118,6 @@ def mark_ms_ocr_result(image_file_path, components_df, filename='', fontsize=10,
 
 ######################################################################################
 
-import cv2
-
-
 def make_greyscale_img(img_path):
   out_img_path = img_path.replace('.', '_grey.')
   if not os.path.exists(out_img_path):
@@ -194,10 +194,8 @@ def ms_ocr(img_path, mark_image = True, show_numeric = False, fontsize = 10, fig
 
 def cut_tiff_into_pngs(path, window_side_length, window_stride = None, output_directory_path = None):
 
-  cutted_image_filepath_list = []
-
   if window_stride is None:
-    window_stride = window_side_length//2
+    window_stride = window_side_length - window_side_length//5
 
   dataset = rasterio.open(path)
   dataset_name = dataset.name.split('/')[-1].split('.')[0]
@@ -230,6 +228,7 @@ def cut_tiff_into_pngs(path, window_side_length, window_stride = None, output_di
       row_off = row_off if row_off + window_side_length <= dataset_height else dataset_height - window_side_length
       offset_pair_list.append((col_off, row_off))
 
+  cropped_image_filepath_list = []
   for col_off, row_off in tqdm(offset_pair_list):
     bands = []
     for band_index in range(1,dataset_band_count+1):
@@ -239,10 +238,10 @@ def cut_tiff_into_pngs(path, window_side_length, window_stride = None, output_di
       im = Image.fromarray(window_img)
       output_path = output_directory_path +'/'+ dataset_name+'_xoff'+str(col_off)+'_yoff'+str(row_off)+'_wsl_'+str(window_side_length)+'.png'
       im.save(output_path)
-      cutted_image_filepath_list.append(output_path)
+      cropped_image_filepath_list.append(output_path)
 
-  cutted_image_filepath_list = sorted(set(cutted_image_filepath_list))
-  return cutted_image_filepath_list
+  cropped_image_filepath_list = sorted(set(cropped_image_filepath_list))
+  return cropped_image_filepath_list
 
 ######################################################################################
 
@@ -301,3 +300,70 @@ def get_outlier_bounds(data, m = 2.):
   data_without_outlier = reject_outliers(data, m = m)
   return data_without_outlier.min(), data_without_outlier.max()
   
+######################################################################################
+
+
+def read_geotransform_parameters(aux_xml_filepath):
+  with open(aux_xml_filepath, 'r') as f:
+    raw = f.read()
+  geotransform_parameters = [ast.literal_eval(v.strip()) for v in re.findall('<GeoTransform>(.*?)</GeoTransform>',raw)[0].split(',')]
+  return geotransform_parameters
+
+def create_transform_matrix(para):
+  transform_matrix = Affine(para[1], para[2], para[0], para[4], para[5] , para[3])
+  return transform_matrix
+
+
+def cut_png_into_pngs(path, window_side_length, window_stride = None, output_directory_path = None):
+
+  dataset_name = path.split('/')[-1].split('.')[0]
+
+  if window_stride is None:
+    window_stride = window_side_length - window_side_length//5
+
+  im_bgr = cv2.imread(path)
+  im_rgb = cv2.cvtColor(im_bgr, cv2.COLOR_BGR2RGB)
+
+  if output_directory_path is None:
+    output_directory_path = '/'.join(path.split('/')[:-1]) +'/'+ dataset_name+'__wsl_'+str(window_side_length)+'_ws_'+str(window_stride)
+  else:
+    output_directory_path = output_directory_path.rstrip('/')
+
+  if not os.path.exists(output_directory_path):
+    os.mkdir(output_directory_path)
+  else:
+    raise ValueError("[Error] Output directory already exists, please check and resolve.")
+
+  dataset_height, dataset_width, dataset_band_count = im_rgb.shape
+
+  aux_xml_filepath = path.replace('.png','.png.aux.xml')
+  affine_info_string = repr(create_transform_matrix(read_geotransform_parameters(aux_xml_filepath)))
+  dataset_meta_string = "{'driver': 'GTiff', 'dtype': 'uint8', 'nodata': None, 'width': "+str(dataset_width)+", 'height': "+str(dataset_height)+", 'count': 4, 'crs': CRS.from_epsg(4326), 'transform': "+affine_info_string+"}"
+  print(dataset_meta_string)
+  with open(output_directory_path +'/'+ 'metadata.txt', 'w') as f:
+    f.write(dataset_meta_string)
+
+  window_width_indices = range(dataset_width//window_stride+1)
+  window_height_indices = range(dataset_height//window_stride+1)
+
+  offset_pair_list = []
+  for window_width_index in window_width_indices:
+    col_off = window_width_index * window_stride
+    col_off = col_off if col_off + window_side_length <= dataset_width else dataset_width - window_side_length
+    for window_height_index in window_height_indices:
+      row_off = window_height_index * window_stride
+      row_off = row_off if row_off + window_side_length <= dataset_height else dataset_height - window_side_length
+      offset_pair_list.append((col_off, row_off))
+
+  cropped_image_filepath_list = []
+
+  for col_off, row_off in tqdm(offset_pair_list):
+    window_img = im_rgb[row_off:row_off+window_side_length, col_off:col_off+window_side_length, :]
+    if window_img[:,:,0].sum() != 0:
+      im = Image.fromarray(window_img)
+      output_path = output_directory_path +'/'+ dataset_name+'_xoff'+str(col_off)+'_yoff'+str(row_off)+'_wsl_'+str(window_side_length)+'.png'
+      im.save(output_path)
+      cropped_image_filepath_list.append(output_path)
+
+  cropped_image_filepath_list = sorted(set(cropped_image_filepath_list))
+  return cropped_image_filepath_list
