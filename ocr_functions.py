@@ -234,12 +234,22 @@ def cut_tiff_into_pngs(path, window_side_length, window_stride = None, output_di
     for band_index in range(1,dataset_band_count+1):
       bands.append( dataset.read(band_index, window = Window(col_off, row_off, window_side_length, window_side_length)) )
     window_img = np.stack(bands, axis=2)
+    
+    # check to ensure image is not completely empty
     if window_img[:,:,0].sum() != 0:
       im = Image.fromarray(window_img)
       output_path = output_directory_path +'/'+ dataset_name+'_xoff'+str(col_off)+'_yoff'+str(row_off)+'_wsl_'+str(window_side_length)+'.png'
       im.save(output_path)
-      cropped_image_filepath_list.append(output_path)
 
+      # check if the border of the image is transparent on all 4 sides, meaning the actual raster data is fully contained
+      if window_img[0,:,0].sum() + window_img[:,0,0].sum() + window_img[-1,:,0].sum() + window_img[:,-1,0].sum() == 0:
+        for p in cropped_image_filepath_list:
+          os.remove(p)
+        cropped_image_filepath_list = [output_path]
+        break # if so, break out out loop and return the current crop only
+
+      cropped_image_filepath_list.append(output_path)
+      
   cropped_image_filepath_list = sorted(set(cropped_image_filepath_list))
   return cropped_image_filepath_list
 
@@ -367,10 +377,20 @@ def cut_png_into_pngs(path, window_side_length, window_stride = None, output_dir
 
   for col_off, row_off in tqdm(offset_pair_list):
     window_img = im_rgb[row_off:row_off+window_side_length, col_off:col_off+window_side_length, :]
+      
+    # check to ensure image is not completely empty
     if window_img[:,:,0].sum() != 0:
       im = Image.fromarray(window_img)
       output_path = output_directory_path +'/'+ dataset_name+'_xoff'+str(col_off)+'_yoff'+str(row_off)+'_wsl_'+str(window_side_length)+'.png'
       im.save(output_path)
+
+      # check if the border of the image is transparent on all 4 sides, meaning the actual raster data is fully contained
+      if window_img[0,:,0].sum() + window_img[:,0,0].sum() + window_img[-1,:,0].sum() + window_img[:,-1,0].sum() == 0:
+        for p in cropped_image_filepath_list:
+          os.remove(p)
+        cropped_image_filepath_list = [output_path]
+        break # if so, break out out loop and return the current crop only
+
       cropped_image_filepath_list.append(output_path)
 
   cropped_image_filepath_list = sorted(set(cropped_image_filepath_list))
