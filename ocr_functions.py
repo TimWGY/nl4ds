@@ -3,7 +3,7 @@ from IPython.display import clear_output
 import pandas as pd
 import numpy as np
 from matplotlib import cm
-from matplotlib.patches import Polygon
+from matplotlib.patches import Polygon as mpb_polygon
 from matplotlib import pyplot as plt
 plt.rcParams["font.serif"] = "cmr10"
 
@@ -108,7 +108,7 @@ def mark_ms_ocr_result(image_file_path, components_df, filename='', fontsize=10,
 
   for bbox, ocr_text in polygons:
     vertices = [(bbox[i], bbox[i + 1]) for i in range(0, len(bbox), 2)]
-    patch = Polygon(vertices, closed=True, fill=False, linewidth=1, color='b')
+    patch = mpb_polygon(vertices, closed=True, fill=False, linewidth=1, color='b')
     ax.axes.add_patch(patch)
     plt.text(vertices[1][0], vertices[1][1], ocr_text, fontsize=fontsize, color='r', va="top")
 
@@ -262,14 +262,14 @@ def get_geo_points_of_the_corners_of_image(dataset):
 
 import pyproj
 from pyproj import Geod
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon as shapely_polygon
 
 def get_area_size_from_geo_point_list(geo_point_list):
   """Input: geo_point_list in format of [(lon, lat), ...]
   Output: size of area in m^2
   # Reference: https://stackoverflow.com/questions/68118907/shapely-pyproj-find-area-in-m2-of-a-polygon-created-from-latitude-and-longi
   """
-  polygon = Polygon(geo_point_list)
+  polygon = shapely_polygon(geo_point_list)
   geod = Geod(ellps="WGS84")
   poly_area, poly_perimeter = geod.geometry_area_perimeter(polygon)
   return int(poly_area)
