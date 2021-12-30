@@ -192,7 +192,7 @@ def ms_ocr(img_path, mark_image = True, show_numeric = False, fontsize = 10, fig
 
 ######################################################################################
 
-def cut_tiff_into_pngs(path, window_side_length, window_stride = None, output_directory_path = None):
+def cut_tiff_into_pngs(path, window_side_length, window_stride = None, output_directory_path = None, skip_if_directory_exists = False):
 
   if window_stride is None:
     window_stride = window_side_length - window_side_length//5
@@ -207,7 +207,10 @@ def cut_tiff_into_pngs(path, window_side_length, window_stride = None, output_di
   if not os.path.exists(output_directory_path):
     os.mkdir(output_directory_path)
   else:
-    raise ValueError("[Error] Output directory already exists, please check and resolve.")
+    if skip_if_directory_exists:
+      return []
+    else:
+      raise ValueError("[Error] Output directory already exists, please check and resolve.")
 
   print(dataset.meta)
   with open(output_directory_path +'/'+ 'metadata.txt', 'w') as f:
@@ -332,7 +335,7 @@ def create_transform_matrix(para):
   return transform_matrix
 
 
-def cut_png_into_pngs(path, window_side_length, window_stride = None, output_directory_path = None):
+def cut_png_into_pngs(path, window_side_length, window_stride = None, output_directory_path = None, skip_if_directory_exists = False):
 
   dataset_name = path.split('/')[-1].split('.')[0]
 
@@ -350,7 +353,10 @@ def cut_png_into_pngs(path, window_side_length, window_stride = None, output_dir
   if not os.path.exists(output_directory_path):
     os.mkdir(output_directory_path)
   else:
-    raise ValueError("[Error] Output directory already exists, please check and resolve.")
+    if skip_if_directory_exists:
+      return []
+    else:
+      raise ValueError("[Error] Output directory already exists, please check and resolve.")
 
   dataset_height, dataset_width, dataset_band_count = im_rgb.shape
 
