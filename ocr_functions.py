@@ -212,9 +212,13 @@ def cut_tiff_into_pngs(path, window_side_length, window_stride = None, output_di
     else:
       raise ValueError("[Error] Output directory already exists, please check and resolve.")
 
-  print(dataset.meta)
+  area_per_pixel = calculate_area_per_pixel(raw_image_filepath)
+  
+  dataset_meta = dict(dataset.meta)
+  dataset_meta['area_per_pixel'] = area_per_pixel
+  print(dataset_meta)
   with open(output_directory_path +'/'+ 'metadata.txt', 'w') as f:
-    f.write(str(dataset.meta))
+    f.write(str(dataset_meta))
 
   dataset_band_count = dataset.count
   dataset_width = dataset.width
@@ -308,18 +312,17 @@ def calculate_area_per_pixel_list(raw_image_filepaths, verbose = False):
     area_per_pixel_list.append(area_per_pixel)
   return area_per_pixel_list
 
-def reject_outliers(data, m = 2.):
-  # Reference: https://stackoverflow.com/a/16562028
-  data = np.array(data)
-  d = np.abs(data - np.median(data))
-  mdev = np.median(d)
-  s = d/mdev if mdev else 0.
-  return data[s<m]
 
-def get_outlier_bounds(data, m = 2.):
-  data = np.array(data)
-  data_without_outlier = reject_outliers(data, m = m)
-  return data_without_outlier.min(), data_without_outlier.max()
+def get_outliers(data_names, data_values):
+  data_names = np.array(data_names)
+  data_values = np.array(data_values)
+  upper_hinge = np.percentile(data_values,75)
+  lower_hinge = np.percentile(data_values,25)
+  iqr = upper_hinge - lower_hinge
+  outlier_mask = (data_values > upper_hinge + 1.5*iqr) | (data_values < lower_hinge - 1.5*iqr)
+  outlier_data_values = data_values[outlier_mask]
+  outlier_data_names = data_names[outlier_mask]
+  return dict(zip(outlier_data_names, outlier_data_values))
   
 ######################################################################################
 
@@ -362,7 +365,11 @@ def cut_png_into_pngs(path, window_side_length, window_stride = None, output_dir
 
   aux_xml_filepath = path.replace('.png','.png.aux.xml')
   affine_info_string = repr(create_transform_matrix(read_geotransform_parameters(aux_xml_filepath)))
-  dataset_meta_string = "{'driver': 'GTiff', 'dtype': 'uint8', 'nodata': None, 'width': "+str(dataset_width)+", 'height': "+str(dataset_height)+", 'count': 4, 'crs': CRS.from_epsg(4326), 'transform': "+affine_info_string+"}"
+
+
+  area_per_pixel = calculate_area_per_pixel(path)
+
+  dataset_meta_string = "{'driver': 'GTiff', 'dtype': 'uint8', 'nodata': None, 'width': "+str(dataset_width)+", 'height': "+str(dataset_height)+", 'count': 4, 'crs': CRS.from_epsg(4326), 'transform': "+affine_info_string+", 'area_per_pixel':"+str(area_per_pixel)+"}"
   print(dataset_meta_string)
   with open(output_directory_path +'/'+ 'metadata.txt', 'w') as f:
     f.write(dataset_meta_string)
