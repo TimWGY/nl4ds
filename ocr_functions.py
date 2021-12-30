@@ -212,7 +212,7 @@ def cut_tiff_into_pngs(path, window_side_length, window_stride = None, output_di
     else:
       raise ValueError("[Error] Output directory already exists, please check and resolve.")
 
-  area_per_pixel = calculate_area_per_pixel(raw_image_filepath)
+  area_per_pixel = calculate_area_per_pixel(path)
   
   dataset_meta = dict(dataset.meta)
   dataset_meta['area_per_pixel'] = area_per_pixel
