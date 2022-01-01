@@ -8,6 +8,7 @@ import matplotlib.cm as cm
 
 import os
 from glob import glob
+import pickle
 
 import re
 from collections import Counter
@@ -593,3 +594,14 @@ def get_length_of_segments(cnt, order = 'original'):
     return sorted(length_of_segments)
   elif order.startswith('des'):
     return sorted(reversed(length_of_segments))
+
+def stop_at_abrupt_change(contours, sudden_change_ratio = 10):
+  output_contours = []
+  prev_cnt_size = 0
+  for cnt in contours:
+    cnt_size = cv2.contourArea(cnt)
+    if cnt_size < 1e4 or prev_cnt_size/cnt_size > sudden_change_ratio:
+      break
+    output_contours.append(cnt)
+    prev_cnt_size = cnt_size
+  return output_contours
