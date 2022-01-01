@@ -2,9 +2,9 @@ from IPython.display import clear_output
 
 import pandas as pd
 import numpy as np
+from matplotlib import pyplot as plt
 from matplotlib import cm
 from matplotlib.patches import Polygon as mpb_polygon
-from matplotlib import pyplot as plt
 plt.rcParams["font.serif"] = "cmr10"
 
 import os
@@ -95,25 +95,35 @@ def parse_ms_ocr_result(ms_ocr_result, return_words=True, confidence_threshold=0
 
   return components_df
 
-def mark_ms_ocr_result(image_file_path, components_df, filename='', fontsize=10,  figsize=(20,20), dpi=150):
+def mark_ms_ocr_result(input_image_filepath, components_df, output_image_filepath='', fontsize=10, figsize=(20,20), dpi=150, ravel=False):
 
-  image = Image.open(image_file_path)
+  components_df = components_df.copy()
+  
+  if ravel:
+    components_df['bounding_box'] = components_df['bounding_box'].apply(lambda x: x.ravel().tolist())
+
+  image = Image.open(input_image_filepath)
 
   plt.figure(figsize=figsize, dpi=dpi)
   ax = plt.imshow(image, cmap=cm.gray)
 
-  polygons = []
   for _, row in components_df.iterrows():
-    polygons.append((row['bounding_box'], row['text']))
 
-  for bbox, ocr_text in polygons:
+    bbox, ocr_text, right_side_center = row['bounding_box'], row['text'], row['bbox_right_side_center']
+    
+    # bounding box
     vertices = [(bbox[i], bbox[i + 1]) for i in range(0, len(bbox), 2)]
-    patch = mpb_polygon(vertices, closed=True, fill=False, linewidth=1, color='b')
-    ax.axes.add_patch(patch)
+    polygon_patch = mpb_polygon(vertices, closed=True, fill=False, linewidth=0.2, color='b')
+    ax.axes.add_patch(polygon_patch)
+    
+    # text
     plt.text(vertices[1][0], vertices[1][1], ocr_text, fontsize=fontsize, color='r', va="top")
 
-  if filename != '':
-    plt.savefig(filename + '.png', bbox_inches='tight', pad_inches=0)
+    # right side center dot
+    plt.text(right_side_center[0], right_side_center[1], '.', fontsize=8, color='#66FF66', ha='left', va="baseline")
+
+  if output_image_filepath != '':
+    plt.savefig(output_image_filepath, bbox_inches='tight', pad_inches=0)
 
 
 ######################################################################################
@@ -217,8 +227,14 @@ def cut_tiff_into_pngs(path, window_side_length, window_stride = None, output_di
   dataset_meta = dict(dataset.meta)
   dataset_meta['area_per_pixel'] = area_per_pixel
   print(dataset_meta)
+
+  dataset_meta_string = str(dataset_meta)
+  dataset_meta_string = dataset_meta_string.replace('\n','')
+  dataset_meta_string = re.sub(r'CRS\.from_epsg\((\d+)\)',r"'epsg:\1'",dataset_meta_string)
+  dataset_meta_string = re.sub(r'Affine\((.*?)\)',r'[\1]',dataset_meta_string)
+  
   with open(output_directory_path +'/'+ 'metadata.txt', 'w') as f:
-    f.write(str(dataset_meta))
+    f.write(dataset_meta_string)
 
   dataset_band_count = dataset.count
   dataset_width = dataset.width
@@ -371,6 +387,12 @@ def cut_png_into_pngs(path, window_side_length, window_stride = None, output_dir
 
   dataset_meta_string = "{'driver': 'GTiff', 'dtype': 'uint8', 'nodata': None, 'width': "+str(dataset_width)+", 'height': "+str(dataset_height)+", 'count': 4, 'crs': CRS.from_epsg(4326), 'transform': "+affine_info_string+", 'area_per_pixel':"+str(area_per_pixel)+"}"
   print(dataset_meta_string)
+
+  dataset_meta_string = str(dataset_meta)
+  dataset_meta_string = dataset_meta_string.replace('\n','')
+  dataset_meta_string = re.sub(r'CRS\.from_epsg\((\d+)\)',r"'epsg:\1'",dataset_meta_string)
+  dataset_meta_string = re.sub(r'Affine\((.*?)\)',r'[\1]',dataset_meta_string)
+
   with open(output_directory_path +'/'+ 'metadata.txt', 'w') as f:
     f.write(dataset_meta_string)
 
