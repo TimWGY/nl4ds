@@ -605,3 +605,4 @@ def stop_at_abrupt_change(contours, sudden_change_ratio = 10):
     output_contours.append(cnt)
     prev_cnt_size = cnt_size
   return output_contours
+
