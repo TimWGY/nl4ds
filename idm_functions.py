@@ -150,6 +150,7 @@ if need_ocr_call[0].lower() == 'y':
   from msrest.authentication import CognitiveServicesCredentials
   computervision_client = ComputerVisionClient(input('\nEndpoint?\n'), CognitiveServicesCredentials(input('\nKey?\n')))
 clear_output()
+print('\nImage data mining (IDM) module is ready. Enjoy exploring!\n')
 
 
 def get_ms_ocr_result(read_image_path, wait_interval=10):
@@ -1319,5 +1320,27 @@ def detect_duplicates(df, dedup_procedure = 'AC', minimum_area_thres = 20*20, ti
   ## -------------------------------------------------------------------------------------------------
 
   return ocr_entry_ids_to_drop, backup_ids_mapping
+
+#==================================================================================================#
+
+
+
+
+
+
+
+
+
+
+
+
+
+#========================================= References =============================================#
+
+# https://stackoverflow.com/questions/16705721/opencv-floodfill-with-mask
+# https://blog.csdn.net/qq_37385726/article/details/82313004
+# https://stackoverflow.com/questions/60197665/opencv-how-to-use-floodfill-with-rgb-image
+# https://rasterio.readthedocs.io/en/latest/topics/georeferencing.html
+# https://hatarilabs.com/ih-en/how-to-create-a-pointlinepolygon-shapefile-with-python-and-fiona-tutorial
 
 #==================================================================================================#
