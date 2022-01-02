@@ -823,7 +823,7 @@ def lab_code_to_rgb_code(lab_tuple):
 #========================= HIGH LEVEL GEOMETRY BASED FEATURE EXTRACTOR ============================#
 
 ###### FIND CONTOURS ######
-def find_contours(img, min_area_size = 1000, max_area_size = None, top_k = None, color_mode = 'rainbow', border_width = 2, show = True, only_exterior = False):
+def find_contours(img, min_area_size = 1000, max_area_size = None, top_k = None, color_mode = 'rainbow', border_width = 2, show = True, only_exterior = False, verbose = True):
 
   img = img.copy()
 
@@ -837,7 +837,8 @@ def find_contours(img, min_area_size = 1000, max_area_size = None, top_k = None,
     contours = [cnt for cnt in contours if cv2.contourArea(cnt)<=max_area_size]
 
   contours = sorted(contours, key=cv2.contourArea, reverse = True)
-  print(len(contours),'contours found.')
+  if verbose:
+    print(len(contours),'contours found.')
 
   if top_k != None:
     print('Showing the',top_k,'largest contours.')
