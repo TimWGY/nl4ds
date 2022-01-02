@@ -37,6 +37,7 @@ from msrest.authentication import CognitiveServicesCredentials
 computervision_client = ComputerVisionClient(input('\nEndpoint?\n'), CognitiveServicesCredentials(input('\nKey?\n')))
 clear_output()
 
+print('"ocr_fuctions" exists such that old notebook importing this module can still run.\nIf you are working on new projects, please use the image data mining module "idm_functions" instead.')
 
 ####################################
 
@@ -95,7 +96,7 @@ def parse_ms_ocr_result(ms_ocr_result, return_words=True, confidence_threshold=0
 
   return components_df
 
-def mark_ms_ocr_result(input_image_filepath, components_df, output_image_filepath='', fontsize=10, figsize=(20,20), dpi=150, ravel=False):
+def mark_ms_ocr_result(input_image_filepath, components_df, output_image_filepath='', fontsize=10, figsize=(20,20), dpi=150, ravel=False, clear_plot=False):
 
   components_df = components_df.copy()
   
@@ -125,6 +126,15 @@ def mark_ms_ocr_result(input_image_filepath, components_df, output_image_filepat
   if output_image_filepath != '':
     plt.savefig(output_image_filepath, bbox_inches='tight', pad_inches=0)
 
+  if clear_plot:
+    # Clear the current axes
+    plt.cla() 
+    # Clear the current figure
+    plt.clf() 
+    # Closes all the windows
+    plt.close('all')   
+    del ax
+    gc.collect()
 
 ######################################################################################
 
