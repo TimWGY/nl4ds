@@ -33,7 +33,7 @@ Image.MAX_IMAGE_PIXELS = None
 
 from shapely.geometry import Polygon as shapely_polygon
 
-os.system('pip install --no-use-pep517 rasterio')
+os.system('pip install rasterio====1.0.25') # --no-use-pep517
 import rasterio
 from rasterio.windows import Window
 from rasterio.transform import Affine
