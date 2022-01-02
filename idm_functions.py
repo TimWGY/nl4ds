@@ -1050,6 +1050,8 @@ def create_range_around(hsv_code, radius = (3,10,10)):
     lower_bound.append(lower_value)
     upper_bound.append(upper_value)
   return tuple(lower_bound), tuple(upper_bound)
+def invert_binary(img):
+  return cv2.bitwise_not(img)
 
 def find_area_of_color(img, hsv_cde, radius, alpha = 0.5, dpi = 150, overlay = True, show = True, return_mask = False):
 
