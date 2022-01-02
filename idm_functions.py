@@ -314,7 +314,14 @@ def resize_img(img_path, target_size):
     print('Resized version of the image already exists.')
     return out_img_path
 
-####################################################################
+def invert_binary(img):
+  return cv2.bitwise_not(img)
+def adaptive_threshold(img, size = 9, C = 18):
+  return cv2.adaptiveThreshold(img.copy(), 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, size, C)
+def otsu_threshold(img):
+  threshold_value, binarized_img = cv2.threshold(img,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+  print('The threshold value found is', threshold_value)
+  return binarized_img
 
 #==================================================================================================#
 
@@ -1050,8 +1057,6 @@ def create_range_around(hsv_code, radius = (3,10,10)):
     lower_bound.append(lower_value)
     upper_bound.append(upper_value)
   return tuple(lower_bound), tuple(upper_bound)
-def invert_binary(img):
-  return cv2.bitwise_not(img)
 
 def find_area_of_color(img, hsv_cde, radius, alpha = 0.5, dpi = 150, overlay = True, show = True, return_mask = False):
 
