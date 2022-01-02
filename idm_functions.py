@@ -1,7 +1,15 @@
 from IPython.core.display import clear_output
 
+clear_output()
+
 # import warnings
 # warnings.filterwarnings('ignore')
+
+import time
+print('Loading packages, this may take a minute ...')
+time.sleep(1)
+from datetime import datetime, timedelta
+from random import random
 
 import pandas as pd
 import numpy as np
@@ -15,14 +23,11 @@ plt.rcParams["font.serif"] = "cmr10"
 import ast
 import os
 import shutil
-import pickle
-import json
 from glob import glob
 import gc
 
-import time
-from datetime import datetime, timedelta
-from random import random
+import pickle
+import json
 
 from collections import Counter
 
@@ -58,6 +63,9 @@ from sklearn.cluster import DBSCAN
 
 os.system('pip install scipy')
 import scipy
+from scipy.cluster.vq import whiten
+from scipy.cluster.vq import kmeans
+from scipy.cluster.vq import vq
 
 os.system('pip install plotly')
 import plotly
@@ -66,8 +74,17 @@ os.system('pip install plotly-express')
 import plotly.express as px
 import plotly.graph_objs as go
 
+os.system('pip install python-Levenshtein')
+os.system('pip install thefuzz')
+os.system('pip install networkx')
+os.system('pip install tqdm')
+
+from thefuzz import fuzz, process
+import networkx as nx
+from tqdm import tqdm
+tqdm.pandas()
+
 clear_output()
-print('\nEnvironment ready, happy exploring!\n\n')
 
 #======================================== COMMON UTILS ============================================#
 
@@ -124,7 +141,7 @@ def create_mapping_from_df(dataframe, key, value, drop_nan_value = True, drop_em
 
 #=========================================== MS OCR ===============================================#
 
-need_ocr_call = input('\nDo you need OCR calls? [y/n]')
+need_ocr_call = input('\nDo you need OCR calls? [y/n]\n')
 if need_ocr_call[0].lower() == 'y':
   os.system('pip install --upgrade azure-cognitiveservices-vision-computervision')
   clear_output()
@@ -132,7 +149,8 @@ if need_ocr_call[0].lower() == 'y':
   from azure.cognitiveservices.vision.computervision.models import OperationStatusCodes
   from msrest.authentication import CognitiveServicesCredentials
   computervision_client = ComputerVisionClient(input('\nEndpoint?\n'), CognitiveServicesCredentials(input('\nKey?\n')))
-  clear_output()
+clear_output()
+
 
 def get_ms_ocr_result(read_image_path, wait_interval=10):
 
@@ -564,10 +582,6 @@ def cut_png_into_pngs(path, window_side_length, window_stride = None, output_dir
 
 
 #======================================== COLOR ANALYZER ==========================================#
-
-from scipy.cluster.vq import whiten
-from scipy.cluster.vq import kmeans
-from scipy.cluster.vq import vq
 
 def analyze_color(input_image, transparency_threshold = 50, plot_3d = False, plot_bar = True, n_cluster = None, max_cluster = 10, ignore_pure_black = True, use_sample = True, return_colors = True):
 
@@ -1139,17 +1153,6 @@ def move_shallow_folder(from_folder, to_folder, copy = False, exclude_regex = No
 
 
 #======================================= SELF FUZZY CLUSTER =======================================#
-
-os.system('pip install python-Levenshtein')
-os.system('pip install thefuzz')
-os.system('pip install networkx')
-os.system('pip install tqdm')
-clear_output()
-
-from thefuzz import fuzz, process
-import networkx as nx
-from tqdm import tqdm
-tqdm.pandas()
 
 def self_fuzzy_cluster(data, field, correct_term_min_freq=1, scorer=fuzz.partial_ratio, score_cutoff=90, verbose=False):
   
