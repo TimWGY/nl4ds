@@ -1,7 +1,7 @@
 from IPython.core.display import clear_output
 
-import warnings
-warnings.filterwarnings('error')
+# import warnings
+# warnings.filterwarnings('ignore')
 
 import pandas as pd
 import numpy as np
@@ -33,7 +33,7 @@ Image.MAX_IMAGE_PIXELS = None
 
 from shapely.geometry import Polygon as shapely_polygon
 
-os.system('pip install rasterio====1.0.25') # --no-use-pep517
+os.system('pip install rasterio')
 import rasterio
 from rasterio.windows import Window
 from rasterio.transform import Affine
