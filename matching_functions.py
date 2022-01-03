@@ -285,13 +285,13 @@ def consolidate_suggestion(data, groupby_col, text_col, base_text_col, uuid_col,
   consolidated_data = consolidated_data[[uuid_col, base_text_col, coord_col, text_col]]
   
   return consolidated_data
-  
-def fuzzy_cluster_and_consolidate(part, value, text_col, base_text_col, uuid_col, coord_col, scorer, score_cutoff):
+
+def fuzzy_cluster_and_consolidate(part, value, text_col, base_text_col, uuid_col, coord_col, long_dist_thres, scorer, score_cutoff):
   if value < 0:
     part = part.rename(columns = {text_col: text_col+'_suggested'})[[uuid_col, text_col+'_suggested', coord_col]]
   else:
     part = create_fuzzy_cluster_column(part, text_col = text_col, scorer = scorer, score_cutoff = score_cutoff)
-    part = evaluate_suggestion(part, text_col = text_col, base_text_col = base_text_col, uuid_col = uuid_col, coord_col = coord_col)
+    part = evaluate_suggestion(part, text_col = text_col, base_text_col = base_text_col, uuid_col = uuid_col, coord_col = coord_col, long_dist_thres = long_dist_thres)
     part = consolidate_suggestion(part, groupby_col = text_col+'_suggested', text_col = text_col, base_text_col = base_text_col, uuid_col = uuid_col, coord_col = coord_col)
   return part
 
@@ -329,7 +329,7 @@ def create_match_dist_column(data, field):
   data[field+'__match_dist'] = data[[field, field+'_suggested']].apply(lambda row: round(haversine(*row)*1000, 1) , axis=1)
   return data
 
-def evaluate_suggestion(part, text_col = 'short_name__nysiis', uuid_col = 'visit_uuid', coord_col = 'coordinates', base_text_col = 'short_name'):
+def evaluate_suggestion(part, text_col = 'short_name__nysiis', uuid_col = 'visit_uuid', coord_col = 'coordinates',base_text_col = 'short_name', long_dist_thres = 50):
 
   suggestion_part = part.copy()
 
