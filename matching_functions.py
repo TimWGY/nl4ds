@@ -116,7 +116,12 @@ def get_geo_dbscan_labels(data, field, radius = 50, min_samples = 2):
   return clabels
 
 def create_spatial_cluster_column(data, field, radius, min_samples = 2):
-  data['geo_dbscan_r'+str(radius)+'_cluster_id'] = get_geo_dbscan_labels(data=data, field=field, radius=radius, min_samples=min_samples)
+  spatial_cluster_id_column = 'geo_dbscan_r'+str(radius)+'_cluster_id'
+  labels = get_geo_dbscan_labels(data=data, field=field, radius=radius, min_samples=min_samples)
+  singleton_count = sum([x == -1 for x in labels])
+  data[spatial_cluster_id_column] = labels
+  data.loc[data[spatial_cluster_id_column]==-1, spatial_cluster_id_column] = sorted(list(range(-singleton_count,0,1)), reverse=True)
+  data.loc[data[spatial_cluster_id_column]>=0,  spatial_cluster_id_column] = data.loc[data[spatial_cluster_id_column]>=0, spatial_cluster_id_column]+1
   return data
 
 ###### SPATIAL LOCATION AND DISTANCE UTILS ######
