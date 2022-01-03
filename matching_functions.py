@@ -1,4 +1,7 @@
 from IPython.core.display import clear_output
+clear_output()
+
+print('Loading packages, this may take a minute ...')
 
 import os
 os.system('pip install pandas')
@@ -238,6 +241,9 @@ def self_fuzzy_cluster(data, field, correct_term_min_freq=1, scorer=fuzz.partial
   term_correction_mapping = temp_df.set_index('term')['most_common_term'].to_dict()
   return term_correction_mapping
 
+def get_match_score(term1, term2):
+  return fuzz.partial_ratio(term1, term2)
+
 def create_fuzzy_cluster_column(data, text_col, scorer = get_match_score, score_cutoff = 80):
   data[text_col+'_suggested'] = data[text_col].map( self_fuzzy_cluster(data, text_col, scorer=scorer, score_cutoff=score_cutoff) )
   return data
@@ -256,8 +262,6 @@ def fuzzy_cluster_and_consolidate(part, value, text_col, uuid_col, coord_col, sc
 
 ###### TEXT FUZZY MATCH EVALUATION ######
 
-def get_match_score(term1, term2):
-  return fuzz.partial_ratio(term1, term2)
 def length_based_rescale(x, median_length, to_power = 0.9):
   return decimal_floor(np.power(np.log(x),to_power)/np.power(np.log(median_length),to_power),2)
 def string_coverage_ratio(token_1, token_2):
