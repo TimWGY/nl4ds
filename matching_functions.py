@@ -1,11 +1,14 @@
 from IPython.core.display import clear_output
 
 import os
+os.system('pip install pandas')
+os.system('pip install numpy')
 os.system('pip install python-Levenshtein')
 os.system('pip install thefuzz')
 os.system('pip install networkx')
 os.system('pip install tqdm')
 os.system('pip install sklearn')
+os.system('pip install scipy')
 os.system('pip install haversine')
 os.system('pip install jellyfish')
 os.system('pip install unidecode')
@@ -26,6 +29,8 @@ import scipy
 from haversine import haversine
 from unidecode import unidecode
 import jellyfish
+from functools import partial
+from tqdm import tqdm
 
 ###### GENERAL, IO, TEXTUAL UTILS ######
 
@@ -76,6 +81,25 @@ def fill_with_other_cols_if_na(data, col, other_cols):
   data[col] = data[candidate_cols].apply(lambda row: fetch_value_from_row(row, candidate_cols), axis=1)
   return data
 
+def apply_by_value_group(input_df, field, custom_func, show_progress=True):
+  input_df = input_df.copy()
+  output_df = pd.DataFrame()
+  unique_values = input_df[field].unique().tolist()
+  if show_progress:
+    for value in tqdm(unique_values):
+      input_part = input_df[input_df[field]==value].copy()
+      output_part = custom_func(input_part, value)
+      output_df = output_df.append(output_part, ignore_index=True)
+  else:
+    for value in unique_values:
+      input_part = input_df[input_df[field]==value].copy()
+      output_part = custom_func(input_part, value)
+      output_df = output_df.append(output_part, ignore_index=True)
+  return output_df
+
+# Alias of apply_by_value_group: apply_to_each_cluster
+apply_to_each_cluster = apply_by_value_group 
+
 def clean_text(x):
   # deaccent, lower, no_special (only alphanumeric), shrink_whitespace
   output = re.sub(r'\s+',' ',re.sub('[^a-z0-9\s]','',unidecode(x).lower().replace('-',' '))).strip() if isinstance(x,str) else np.nan
@@ -107,7 +131,7 @@ def create_phonetic_column(data, field, phonetic_code = 'nysiis', prefix = None)
     raise "[Error] Invalid phonetic code, the options are 'nysiis','soundex','mr_codex','metaphone'"
   return data
 
-###### SPATIAL CLUSTERING ######
+###### GEOSPATIAL CLUSTERING ######
 
 def get_geo_dbscan_labels(data, field, radius = 50, min_samples = 2):
   clusterer = DBSCAN(eps=(radius/1000)/6371., algorithm='ball_tree', metric='haversine', min_samples=min_samples)
@@ -116,7 +140,7 @@ def get_geo_dbscan_labels(data, field, radius = 50, min_samples = 2):
   clabels = clusterer.labels_
   return clabels
 
-def create_spatial_cluster_column(data, field, radius, min_samples = 2):
+def create_geo_cluster_column(data, field, radius, min_samples = 2):
   spatial_cluster_id_column = 'geo_dbscan_r'+str(radius)+'_cluster_id'
   labels = get_geo_dbscan_labels(data=data, field=field, radius=radius, min_samples=min_samples)
   singleton_count = sum([x == -1 for x in labels])
@@ -214,8 +238,26 @@ def self_fuzzy_cluster(data, field, correct_term_min_freq=1, scorer=fuzz.partial
   term_correction_mapping = temp_df.set_index('term')['most_common_term'].to_dict()
   return term_correction_mapping
 
+def create_fuzzy_cluster_column(data, text_col, scorer = get_match_score, score_cutoff = 80):
+  data[text_col+'_suggested'] = data[text_col].map( self_fuzzy_cluster(data, text_col, scorer=scorer, score_cutoff=score_cutoff) )
+  return data
+
+def consolidate_suggestion(data, groupby_col, uuid_col, coord_col):
+  consolidated_data = data.groupby(groupby_col).agg({uuid_col: lambda x: '|'.join(sorted(x)), coord_col: lambda x: np_median_center(list(x))}).reset_index()
+  return consolidated_data[[uuid_col, groupby_col, coord_col]]
+
+def fuzzy_cluster_and_consolidate(part, value, text_col, uuid_col, coord_col, scorer, score_cutoff):
+  if value < 0:
+    part = part.rename(columns = {text_col: text_col+'_suggested'})[[uuid_col, text_col+'_suggested', coord_col]]
+  else:
+    part = create_fuzzy_cluster_column(part, text_col = text_col, scorer = scorer, score_cutoff = score_cutoff)
+    part = consolidate_suggestion(part, groupby_col = text_col+'_suggested', uuid_col = uuid_col, coord_col = coord_col)
+  return part
+
 ###### TEXT FUZZY MATCH EVALUATION ######
 
+def get_match_score(term1, term2):
+  return fuzz.partial_ratio(term1, term2)
 def length_based_rescale(x, median_length, to_power = 0.9):
   return decimal_floor(np.power(np.log(x),to_power)/np.power(np.log(median_length),to_power),2)
 def string_coverage_ratio(token_1, token_2):
@@ -234,3 +276,6 @@ def within_token_match_ratio(string_1, string_2, metric = 'coverage'):
   return max_wtmr
 
 ###### ######
+
+
+
