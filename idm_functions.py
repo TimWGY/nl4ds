@@ -1217,9 +1217,9 @@ def self_fuzzy_cluster(data, field, correct_term_min_freq=1, scorer=fuzz.partial
 
 #=================================== DEDUPLICATE OCR RESULT =======================================#
 
-def get_dbscan_labels(data, input_col, radius = 0.5):
+def get_dbscan_labels(data, field, radius = 0.5):
   clusterer = DBSCAN(eps=radius, algorithm='auto', metric='euclidean', min_samples=2)
-  coorindates_array = np.array(data[input_col].tolist())
+  coorindates_array = np.array(data[field].tolist())
   clusterer.fit(coorindates_array)
   clabels = clusterer.labels_
   return clabels
