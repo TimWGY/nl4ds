@@ -46,6 +46,23 @@ def unique_preserving_order(l):
   seen_add = seen.add
   return [x for x in l if not (x in seen or seen_add(x))]
 
+def try_length_is_zero(x):
+  try:
+    if isinstance(x,int):
+      return False
+    return len(x)==0
+  except:
+    return True
+
+def create_mapping_from_df(dataframe, key, value, drop_nan_value = True, drop_empty_value = True):
+  temp_df = dataframe[[key,value]].copy()
+  if drop_empty_value:
+    temp_df[value] = temp_df[value].apply(lambda x: np.nan if try_length_is_zero(x) else x)
+    drop_nan_value = True
+  if drop_nan_value:
+    temp_df = temp_df.dropna()
+  return temp_df.set_index(key)[value].to_dict()
+
 def decimal_floor(a, precision=0):
   # Reference: https://stackoverflow.com/a/58065394
   return np.true_divide(np.floor(a * 10**precision), 10**precision)
@@ -271,7 +288,7 @@ def length_based_rescale(x, median_length, to_power = 0.9):
   return decimal_floor(np.power(np.log(x),to_power)/np.power(np.log(median_length),to_power),2) if x != 0 else 0
 
 def create_ptsr_column(data, field, length_rescale = True, median_length = 10):
-  data[field+'__ptsr'] = data[[data, data+'_suggested']].apply(lambda row: round(fuzz.partial_token_set_ratio(*row)/100,2) ,axis=1)
+  data[field+'__ptsr'] = data[[field, field+'_suggested']].apply(lambda row: round(fuzz.partial_token_set_ratio(*row)/100,2) ,axis=1)
   if length_rescale:
     data[field+'__length_based_rescale_factor'] = data[field].fillna('').apply(len).apply(lambda x: length_based_rescale(x, median_length = median_length))
     data[field+'__length_rescaled_ptsr'] = (data[field+'__length_based_rescale_factor'] * data[field+'__ptsr']).clip(upper=1)    
