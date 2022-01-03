@@ -84,6 +84,10 @@ import networkx as nx
 from tqdm import tqdm
 tqdm.pandas()
 
+
+os.system('pip install Fiona')
+import fiona
+
 clear_output()
 
 #======================================== COMMON UTILS ============================================#
@@ -1331,6 +1335,46 @@ def detect_duplicates(df, dedup_procedure = 'AC', minimum_area_thres = 20*20, ti
 
 #==================================================================================================#
 
+
+
+
+
+
+
+
+#===================================== WRITE SHAPEFILE ============================================#
+
+def get_dtype_as_string(x):
+  return 'int' if isinstance(x,int) else 'float' if isinstance(x,float) else 'str'
+
+def create_shapefile_from_df(filepath, dataframe, properties_columns, geometry_column, geometry_type = 'Polygon', crs = 'EPSG:4326'):
+
+  ##############################
+  # Copy dataframe & reset index
+  dataframe = dataframe.copy().reset_index(drop=True)
+
+  ##############################
+  # Build schema based on inputs
+  sample_value_dict = dataframe[:1].T.to_dict()[0]
+  schema = {'properties': [( col,  get_dtype_as_string(sample_value_dict[col])  ) for col in properties_columns], 
+  'geometry': geometry_type}
+
+  ##############################
+  # Open a fiona object
+  shp_file = fiona.open(filepath, mode = 'w', driver = 'ESRI Shapefile', schema = schema, crs = crs)
+  # Create records
+  records = []
+  for _, row in dataframe.iterrows():
+    records.append({
+        'properties': {col: row[col] for col in properties_columns} ,
+        'geometry' : {'type': geometry_type, 'coordinates': [ row[geometry_column] ]} , # remember to keep the outer square brackets
+    })
+  # Write records
+  shp_file.writerecords(records)
+  # Close fiona object
+  shp_file.close()
+
+#==================================================================================================#
 
 
 
