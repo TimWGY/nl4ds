@@ -117,7 +117,7 @@ mr_codex = jellyfish.match_rating_codex # 'JLLFSH'
 metaphone = jellyfish.metaphone # 'JLFX'
 fingerprint = lambda x: ' '.join([w if w.isnumeric() else (''.join(unique_preserving_order(w))).upper() for w in x.split()]) # JELYFISH
 
-def create_phonetic_column(data, field, phonetic_code = 'nysiis', prefix = None):
+def create_phonetic_column(data, field, phonetic_code = 'nysiis', prefix = None, fillna_with_orig_field = True):
   if prefix is None:
     prefix = field + '__'
   phonetic_codes = ['nysiis','soundex','mr_codex','metaphone']
@@ -125,13 +125,18 @@ def create_phonetic_column(data, field, phonetic_code = 'nysiis', prefix = None)
     for code in phonetic_codes:
       func = eval(code)
       data[prefix + code] = data[field].apply(lambda x: ' '.join([(w if w.isnumeric() else func(w)) for w in x.split()]) if isinstance(x,str) else np.nan).apply(lambda x: np.nan if not isinstance(x,str) or len(x)==1 else x) 
+      if fillna_with_orig_field:
+        data[prefix + code] = data[prefix + code].fillna(data[field])
       # last apply function in the previous line turns single letter phonetic signature into NaN, they are too abstract and can match arbitrarily different words
   elif phonetic_code in phonetic_codes:
     code = phonetic_code
     func = eval(code)
     data[prefix + code] =   data[field].apply(lambda x: ' '.join([(w if w.isnumeric() else func(w)) for w in x.split()]) if isinstance(x,str) else np.nan).apply(lambda x: np.nan if not isinstance(x,str) or len(x)==1 else x)
+    if fillna_with_orig_field:
+      data[prefix + code] = data[prefix + code].fillna(data[field])
   else:
     raise "[Error] Invalid phonetic code, the options are 'nysiis','soundex','mr_codex','metaphone'"
+
   return data
 
 ###### GEOSPATIAL CLUSTERING ######
@@ -263,7 +268,15 @@ def fuzzy_cluster_and_consolidate(part, value, text_col, uuid_col, coord_col, sc
 ###### TEXT FUZZY MATCH EVALUATION ######
 
 def length_based_rescale(x, median_length, to_power = 0.9):
-  return decimal_floor(np.power(np.log(x),to_power)/np.power(np.log(median_length),to_power),2)
+  return decimal_floor(np.power(np.log(x),to_power)/np.power(np.log(median_length),to_power),2) if x != 0 else 0
+
+def create_ptsr_column(data, field, length_rescale = True, median_length = 10):
+  data[field+'__ptsr'] = data[[data, data+'_suggested']].apply(lambda row: round(fuzz.partial_token_set_ratio(*row)/100,2) ,axis=1)
+  if length_rescale:
+    data[field+'__length_based_rescale_factor'] = data[field].fillna('').apply(len).apply(lambda x: length_based_rescale(x, median_length = median_length))
+    data[field+'__length_rescaled_ptsr'] = (data[field+'__length_based_rescale_factor'] * data[field+'__ptsr']).clip(upper=1)    
+  return data
+
 def string_coverage_ratio(token_1, token_2):
   short, long = sorted([token_1, token_2], key = len)
   return decimal_floor(1-len(long.replace(short,''))/len(long),2)
@@ -278,6 +291,13 @@ def within_token_match_ratio(string_1, string_2, metric = 'coverage'):
           new_wtmr = metric(string_1_token, string_2_token)
         max_wtmr = max(max_wtmr, new_wtmr)
   return max_wtmr
+def create_wtmr_column(data, field):
+  data[field+'__wtmr'] = data[[field, field+'_suggested']].apply(lambda row: within_token_match_ratio(*row) ,axis=1)
+  return data
+
+def create_match_dist_column(data, field):
+  data[field+'__match_dist'] = data[[field, field+'_suggested']].apply(lambda row: round(haversine(*row)*1000, 1) , axis=1)
+  return data
 
 ###### ######
 
