@@ -51,6 +51,8 @@ def load_geojson_as_pandas_df(data_file_path, long_to_lon = True, need_geometry 
   if need_geometry:
     df['geometry'] = df['geometry'].apply(lambda geom: {'type':'Missing','coordinates':[np.nan, np.nan]} if geom is None else geom)
     df = pd.concat([pd.json_normalize( df['properties'] ), pd.json_normalize( df['geometry'] ).rename(columns = {'type':'geom_type','coordinates':'geom_coordinates'})], axis = 1)
+  else:
+    df = pd.json_normalize( df['properties'] )
   if long_to_lon:
     df = df.rename(columns = {'long':'lon'})
   print('\nLoaded successfully with '+str(len(df.columns))+' columns and '+str(len(df))+' rows.\n')
