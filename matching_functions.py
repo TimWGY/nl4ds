@@ -281,5 +281,6 @@ def within_token_match_ratio(string_1, string_2, metric = 'coverage'):
 
 ###### ######
 
-
+clear_output()
+print('\nMatching module is ready. Enjoy exploring!\n')
 

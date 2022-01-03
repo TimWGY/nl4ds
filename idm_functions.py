@@ -154,8 +154,6 @@ if need_ocr_call[0].lower() == 'y':
   from msrest.authentication import CognitiveServicesCredentials
   computervision_client = ComputerVisionClient(input('\nEndpoint?\n'), CognitiveServicesCredentials(input('\nKey?\n')))
 clear_output()
-print('\nImage data mining (IDM) module is ready. Enjoy exploring!\n')
-
 
 def get_ms_ocr_result(read_image_path, wait_interval=10):
 
@@ -1385,7 +1383,8 @@ def create_shapefile_from_df(filepath, dataframe, properties_columns, geometry_c
 
 
 
-
+clear_output()
+print('\nImage data mining (IDM) module is ready. Enjoy exploring!\n')
 
 #========================================= References =============================================#
 
