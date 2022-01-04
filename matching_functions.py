@@ -369,6 +369,7 @@ def evaluate_suggestion_and_rollback(df, name_col, phonetic_col, uuid_col, coord
 
   # Rollback the suggestions that appear to be a bad match
   df.loc[df[uuid_col].isin(suggestion_rollback_uuid_list), uuid_col+'_suggested'] = df.loc[df[uuid_col].isin(suggestion_rollback_uuid_list), uuid_col]
+  df.loc[df[uuid_col].isin(suggestion_rollback_uuid_list), phonetic_col+'_suggested'] = df.loc[df[uuid_col].isin(suggestion_rollback_uuid_list), phonetic_col]
   df.loc[df[uuid_col].isin(suggestion_rollback_uuid_list), name_col+'_suggested'] = df.loc[df[uuid_col].isin(suggestion_rollback_uuid_list), name_col]
   df.loc[df[uuid_col].isin(suggestion_rollback_uuid_list), coord_col+'_suggested'] = df.loc[df[uuid_col].isin(suggestion_rollback_uuid_list), coord_col]
 
