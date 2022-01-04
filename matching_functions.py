@@ -396,6 +396,14 @@ def deconsolidate_suggestion(cdf, name_col, phonetic_col, uuid_col, coord_col, r
 
   return dcdf
 
+###### TABULAR MATCH ######
+
+def get_values_shared_and_unique(df1, df2, field):
+  values_shared = set(df1[field].unique()).intersection(set(df2[field].unique()))
+  values_unique_to_df1 = set(df1[field].unique()).difference(set(df2[field].unique()))
+  values_unique_to_df2 = set(df2[field].unique()).difference(set(df1[field].unique()))
+  return values_shared, values_unique_to_df1, values_unique_to_df2
+
 ############
 
 clear_output()
