@@ -266,6 +266,35 @@ def self_fuzzy_cluster(data, field, correct_term_min_freq=1, scorer=fuzz.partial
 def get_match_score(term1, term2):
   return fuzz.partial_ratio(term1, term2)
 
+def create_fuzzy_cluster_column(data, text_col, scorer = get_match_score, score_cutoff = 80):
+  data[text_col+'_suggested'] = data[text_col].map( self_fuzzy_cluster(data, text_col, scorer=scorer, score_cutoff=score_cutoff) )
+  return data
+
+def consolidate_suggestion(data, groupby_col, text_col, base_text_col, uuid_col, coord_col):
+  
+  suggested_uuid_col_mapping = create_mapping_from_df(data, uuid_col, uuid_col+'_suggested')
+  base_text_col_mapping = create_mapping_from_df(data, uuid_col, base_text_col)
+  text_col_mapping = create_mapping_from_df(data, uuid_col, text_col)
+  
+  consolidated_data = data.groupby(groupby_col).agg({uuid_col: list, coord_col: lambda x: np_median_center(list(x))}).reset_index()
+  consolidated_data[base_text_col] = consolidated_data[groupby_col].map(base_text_col_mapping)
+  consolidated_data[text_col] = consolidated_data[groupby_col].map(text_col_mapping)
+  consolidated_data[uuid_col+'_suggested'] = consolidated_data[groupby_col].map(suggested_uuid_col_mapping)
+
+  consolidated_data[uuid_col] = consolidated_data[[uuid_col, uuid_col+'_suggested']].apply(lambda row: '|'.join(sorted(row[uuid_col], key=lambda x: 0 if x==row[uuid_col+'_suggested'] else 1)), axis=1)
+  consolidated_data = consolidated_data[[uuid_col, base_text_col, coord_col, text_col]]
+  
+  return consolidated_data
+
+def fuzzy_cluster_and_consolidate(part, value, text_col, base_text_col, uuid_col, coord_col, long_dist_thres, scorer, score_cutoff):
+  if value < 0:
+    part = part.rename(columns = {text_col: text_col+'_suggested'})[[uuid_col, text_col+'_suggested', coord_col]]
+  else:
+    part = create_fuzzy_cluster_column(part, text_col = text_col, scorer = scorer, score_cutoff = score_cutoff)
+    part = evaluate_suggestion(part, text_col = text_col, base_text_col = base_text_col, uuid_col = uuid_col, coord_col = coord_col, long_dist_thres = long_dist_thres)
+    part = consolidate_suggestion(part, groupby_col = text_col+'_suggested', text_col = text_col, base_text_col = base_text_col, uuid_col = uuid_col, coord_col = coord_col)
+  return part
+
 ###### TEXT FUZZY MATCH EVALUATION ######
 
 def length_based_rescale(x, median_length, to_power = 0.9):
@@ -296,98 +325,62 @@ def create_wtmr_column(data, field):
   data[field+'__wtmr'] = data[[field, field+'_suggested']].apply(lambda row: within_token_match_ratio(*row) ,axis=1)
   return data
 
-def create_dist_column(data, field):
+def create_match_dist_column(data, field):
   data[field+'__match_dist'] = data[[field, field+'_suggested']].apply(lambda row: round(haversine(*row)*1000, 1) , axis=1)
   return data
 
+def evaluate_suggestion(part, text_col = 'short_name__nysiis', uuid_col = 'visit_uuid', coord_col = 'coordinates',base_text_col = 'short_name', long_dist_thres = 50):
 
-###### STANDARD WORKFLOW HIGH-LEVEL FUNCTIONS######
+  suggestion_part = part.copy()
 
-def create_fuzzy_cluster_column(data, value, fuzzy_col, scorer = get_match_score, score_cutoff = 80):
-  if value < 0:
-    data[fuzzy_col+'_suggested'] = data[fuzzy_col]
-  else:
-    data[fuzzy_col+'_suggested'] = data[fuzzy_col].map( self_fuzzy_cluster(data, fuzzy_col, scorer=scorer, score_cutoff=score_cutoff) )
-  return data
+  suggested_text_to_exemplar_entry_uuid_mapping = {}
 
-def create_exemplar_uuid_column(part, value, name_col, phonetic_col, uuid_col, coord_col):
+  for suggested_text in suggestion_part[text_col+'_suggested'].unique().tolist():
 
-  if value < 0:
-    
-    part[uuid_col+'_suggested'] = part[uuid_col]
+    # the most frequent name among points with the target phonetic code (within the geo cluster)
+    suggested_base_text = part.loc[part[text_col] == suggested_text, base_text_col].value_counts().index.tolist()[0]
 
-  else:
+    # median center of points with the target phonetic code (within the geo cluster)
+    suggested_text_median_center = np_median_center(part.loc[part[text_col] == suggested_text, coord_col].tolist())
 
-    suggested_phonetic_to_exemplar_uuid_mapping = {}
+    # the point that is the closest to the median center (of target phonetic code points), among the points that have the most frequent name
+    # we want the exemplar point to have the most frequent name (base_text_col), but also geospatially representative of all the points that are textually similar (same phonetic code)
+    entry_with_suggested_base_text_and_closest_to_suggested_text_median_center = part.loc[part[base_text_col] == suggested_base_text, coord_col].apply(lambda x: haversine(x, suggested_text_median_center)).sort_values().index.tolist()[0]
 
-    for suggested_phonetic in part[phonetic_col+'_suggested'].unique().tolist():
+    exemplar_entry_uuid = part.loc[entry_with_suggested_base_text_and_closest_to_suggested_text_median_center, uuid_col]
 
-      # the most frequent name among points with the target phonetic code (within the geo cluster)
-      suggested_name = part.loc[part[phonetic_col+'_suggested'] == suggested_phonetic, name_col].value_counts().index.tolist()[0]
+    suggested_text_to_exemplar_entry_uuid_mapping[suggested_text] = exemplar_entry_uuid
 
-      # median center of points with the target phonetic code (within the geo cluster)
-      suggested_phonetic_median_center = np_median_center(part.loc[part[phonetic_col+'_suggested'] == suggested_phonetic, coord_col].tolist())
+  suggestion_part[uuid_col+'_suggested'] = suggestion_part[text_col+'_suggested'].map(suggested_text_to_exemplar_entry_uuid_mapping)
 
-      # the point that is the closest to the median center (of target phonetic code points), among the points that have the most frequent name
-      # we want the exemplar point to have the most frequent name (base_text_col), but also geospatially representative of all the points that are textually similar (same phonetic code)
-      exemplar_indice = part.loc[part[name_col] == suggested_name, coord_col].apply(lambda x: haversine(x, suggested_phonetic_median_center)).sort_values().index.tolist()[0]
+  base_text_col_mapping = create_mapping_from_df(part, uuid_col, base_text_col)
+  text_col_mapping = create_mapping_from_df(part, uuid_col, text_col)
+  coord_col_mapping = create_mapping_from_df(part, uuid_col, coord_col)
 
-      exemplar_uuid = part.loc[exemplar_indice, uuid_col]
+  suggestion_part[base_text_col+'_suggested'] = suggestion_part[uuid_col+'_suggested'].map(base_text_col_mapping)
+  suggestion_part[text_col+'_suggested'] = suggestion_part[uuid_col+'_suggested'].map(text_col_mapping)
+  suggestion_part[coord_col+'_suggested'] = suggestion_part[uuid_col+'_suggested'].map(coord_col_mapping)
 
-      suggested_phonetic_to_exemplar_uuid_mapping[suggested_phonetic] = exemplar_uuid
+  suggestion_part = create_ptsr_column(suggestion_part, base_text_col)
+  suggestion_part = create_wtmr_column(suggestion_part, text_col)
+  suggestion_part = create_match_dist_column(suggestion_part, coord_col)
 
-    part[uuid_col+'_suggested'] = part[phonetic_col+'_suggested'].map(suggested_phonetic_to_exemplar_uuid_mapping)
+  suggestion_part['unconfident_base_text_match'] = suggestion_part[base_text_col+'__length_rescaled_ptsr']<0.5
+  suggestion_part['spurious_phonetic_match'] = suggestion_part[text_col+'__wtmr']<0.5
+  suggestion_part['long_dist_match'] = suggestion_part[coord_col+'__match_dist']>long_dist_thres
 
+  suggestion_part['bad_match_indicator_count'] = suggestion_part['spurious_phonetic_match'].apply(int) + suggestion_part['unconfident_base_text_match'].apply(int) + suggestion_part['long_dist_match'].apply(int)
+
+  good_suggestion_part = suggestion_part[suggestion_part['bad_match_indicator_count']==0]
+
+  part[uuid_col + '_suggested'] = part[uuid_col]
+  for _, row in good_suggestion_part.iterrows():
+    part.loc[part[uuid_col] == row[uuid_col], uuid_col+'_suggested'] = row[uuid_col+'_suggested']
+  
   return part
 
-def create_suggestion_detail_column(df, name_col, phonetic_col, uuid_col, coord_col, radius):
 
-  uuid_to_name_mapping = create_mapping_from_df(df, uuid_col, name_col)
-  uuid_to_coord_mapping = create_mapping_from_df(df, uuid_col, coord_col)
-  
-  df[name_col+'_suggested']  = df[uuid_col+'_suggested'].map(uuid_to_name_mapping)
-  df[coord_col+'_suggested'] = df[uuid_col+'_suggested'].map(uuid_to_coord_mapping)
-
-  return df
-
-def evaluate_suggestion_and_rollback(df, name_col, phonetic_col, uuid_col, coord_col, radius):
-
-  # Evaluate suggestions that involve a phonetic code change
-  phonetic_change_df = df.query(phonetic_col+'!='+phonetic_col+'_suggested').copy()
-
-  phonetic_change_df = create_ptsr_column(phonetic_change_df, name_col)
-  phonetic_change_df = create_wtmr_column(phonetic_change_df, phonetic_col)
-  phonetic_change_df = create_dist_column(phonetic_change_df, coord_col)
-
-  phonetic_change_df['unconfident_base_text_match'] = phonetic_change_df[name_col+'__length_rescaled_ptsr']<0.5
-  phonetic_change_df['spurious_phonetic_match'] = phonetic_change_df[phonetic_col+'__wtmr']<0.5
-  phonetic_change_df['long_dist_match'] = phonetic_change_df[coord_col+'__match_dist']>radius
-
-  phonetic_change_df['bad_match_indicator_count'] = phonetic_change_df[['spurious_phonetic_match','unconfident_base_text_match','long_dist_match']].apply(lambda row: sum([int(x) for x in list(row)]), axis=1)
-
-  suggestion_rollback_uuid_list = phonetic_change_df.loc[phonetic_change_df['bad_match_indicator_count']>0, uuid_col].tolist()
-
-  # Rollback the suggestions that appear to be a bad match
-  df.loc[df[uuid_col].isin(suggestion_rollback_uuid_list), uuid_col+'_suggested'] = df.loc[df[uuid_col].isin(suggestion_rollback_uuid_list), uuid_col]
-  df.loc[df[uuid_col].isin(suggestion_rollback_uuid_list), name_col+'_suggested'] = df.loc[df[uuid_col].isin(suggestion_rollback_uuid_list), name_col]
-  df.loc[df[uuid_col].isin(suggestion_rollback_uuid_list), coord_col+'_suggested'] = df.loc[df[uuid_col].isin(suggestion_rollback_uuid_list), coord_col]
-
-  return df
-
-def consolidate_suggestion_for_next_round(df, name_col, phonetic_col, uuid_col, coord_col, radius):
-  
-  uuid_to_name_mapping = create_mapping_from_df(df, uuid_col, name_col)
-  uuid_to_coord_mapping = create_mapping_from_df(df, uuid_col, coord_col)
-
-  consolidated_df = df.groupby(uuid_col+'_suggested').agg({uuid_col: list}).reset_index()
-  consolidated_df[uuid_col] = consolidated_df[[uuid_col, uuid_col+'_suggested']].apply(lambda row: '|'.join(sorted(row[uuid_col], key=lambda x: 0 if x==row[uuid_col+'_suggested'] else 1)), axis=1)
-  consolidated_df[name_col] = consolidated_df[uuid_col+'_suggested'].map(uuid_to_name_mapping)
-  consolidated_df[coord_col] = consolidated_df[uuid_col+'_suggested'].map(uuid_to_coord_mapping)
-  consolidated_df = consolidated_df.drop([uuid_col+'_suggested'], axis=1)
-
-  return consolidated_df
-
-############
+###### ######
 
 clear_output()
 print('\nMatching module is ready. Enjoy exploring!\n')
