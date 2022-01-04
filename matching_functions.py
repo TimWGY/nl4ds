@@ -375,7 +375,7 @@ def evaluate_suggestion_and_rollback(df, name_col, phonetic_col, uuid_col, coord
 
   return df
 
-def consolidate_suggestion_for_next_round(df, name_col, phonetic_col, uuid_col, coord_col, radius):
+def consolidate_suggestion(df, name_col, phonetic_col, uuid_col, coord_col, radius):
   
   uuid_to_name_mapping = create_mapping_from_df(df, uuid_col, name_col)
   uuid_to_coord_mapping = create_mapping_from_df(df, uuid_col, coord_col)
@@ -387,6 +387,14 @@ def consolidate_suggestion_for_next_round(df, name_col, phonetic_col, uuid_col, 
   consolidated_df = consolidated_df.drop([uuid_col+'_suggested'], axis=1)
 
   return consolidated_df
+
+def deconsolidate_suggestion(cdf, name_col, phonetic_col, uuid_col, coord_col, radius):
+
+  cdf[uuid_col+'_suggested'] = cdf[uuid_col+'_suggested'].apply(lambda x: x.split('|')[0])
+  cdf[uuid_col] = cdf[uuid_col].apply(lambda x: x.split('|'))
+  dcdf = cdf.explode(uuid_col).reset_index(drop=True)
+
+  return dcdf
 
 ############
 
