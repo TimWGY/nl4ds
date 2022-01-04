@@ -272,9 +272,9 @@ def create_fuzzy_cluster_column(data, text_col, scorer = get_match_score, score_
 
 def consolidate_suggestion(data, groupby_col, text_col, base_text_col, uuid_col, coord_col):
   
-  suggested_uuid_col_mapping = create_mapping_from_df(part, uuid_col, uuid_col+'_suggested')
-  base_text_col_mapping = create_mapping_from_df(part, uuid_col, base_text_col)
-  text_col_mapping = create_mapping_from_df(part, uuid_col, text_col)
+  suggested_uuid_col_mapping = create_mapping_from_df(data, uuid_col, uuid_col+'_suggested')
+  base_text_col_mapping = create_mapping_from_df(data, uuid_col, base_text_col)
+  text_col_mapping = create_mapping_from_df(data, uuid_col, text_col)
   
   consolidated_data = data.groupby(groupby_col).agg({uuid_col: list, coord_col: lambda x: np_median_center(list(x))}).reset_index()
   consolidated_data[base_text_col] = consolidated_data[groupby_col].map(base_text_col_mapping)
