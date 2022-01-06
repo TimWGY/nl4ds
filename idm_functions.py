@@ -825,12 +825,34 @@ def lab_code_to_rgb_code(lab_tuple):
 #========================= HIGH LEVEL GEOMETRY BASED FEATURE EXTRACTOR ============================#
 
 ###### FIND CONTOURS ######
-def find_contours(img, min_area_size = 1000, max_area_size = None, top_k = None, color_mode = 'rainbow', border_width = 2, show = True, only_exterior = False, verbose = True):
+
+def create_hierarchy_df(hierarchy):
+  # Reference: https://docs.opencv.org/4.x/d9/d8b/tutorial_py_contours_hierarchy.html
+  hierarchy = hierarchy[0]
+  hierarchy_df = pd.DataFrame(hierarchy, columns=['next','prev','child','parent'])
+  import networkx as nx
+  G = nx.DiGraph()
+  for index, row in hierarchy_df.query('parent != -1').iterrows():
+    G.add_edge(row['parent'], index)
+  root_nodes = hierarchy_df.query('parent == -1 & child != -1').index.tolist()
+  node_depth_mapping = {}
+  for root_node in root_nodes:
+    node_depth_mapping.update( nx.shortest_path_length(G, root_node) )
+  hierarchy_df['level'] = hierarchy_df.index.map(node_depth_mapping).fillna(0)
+  hierarchy_df['level'] = hierarchy_df['level'].apply(int)
+  return hierarchy_df
+
+def find_contours(img, min_area_size = 1000, max_area_size = None, top_k = None, color_mode = 'rainow', border_width = 2, show = True, only_exterior = False, only_lowest_k = None, verbose = True):
 
   img = img.copy()
 
   if only_exterior:
     contours, hierarchy = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+  elif only_lowest_k != None:
+    contours, hierarchy = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    hierarchy_df = create_hierarchy_df(hierarchy)
+    contours_indices = hierarchy_df.loc[hierarchy_df['level'].isin(  sorted(hierarchy_df['level'].unique())[:only_lowest_k]  )].index.tolist()
+    contours = np.array(contours, dtype=object)[contours_indices]
   else:
     contours, hierarchy = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -873,7 +895,6 @@ def find_contours(img, min_area_size = 1000, max_area_size = None, top_k = None,
       imshow(colored_img)
   
   return contours
-
 
 ###### SMOOTH/SIMPLIFY CONTOURS ######
 def approximate_contours(contours = [], precision_level = 0.01, border_width = 2, show = False, img = None):
@@ -939,7 +960,7 @@ def stop_at_abrupt_change(contours, sudden_change_ratio = 10):
 
 
 ###### VISUALIZE CONTOURS ######
-def draw_many_contours(img, contours, dpi=None, border_width=2, n_colors = 8, font_scale = 1, is_bgr = True):
+def draw_many_contours(img, contours, dpi=None, border_width=2, n_colors = 8, font_scale = 1, is_bgr = True, fill_inside = False):
   
   color_range = range(1,n_colors*10+1,n_colors)
   colors = [hsv2rgb(num/100) for num in color_range]
@@ -1044,8 +1065,28 @@ def random_sample_position_of_certain_value(ndarray, value, format = 'xy'):
     return yx
 def get_vicinity(img,pixel_pos,radius): # pixel_pos in (x,y) format
   x, y = pixel_pos
-  vicinity = img[y-radius:y+radius+1, x-radius:x+radius+1].copy()
+  vicinity = img[max(0,y-radius):min(y+radius+1,img.shape[0]), max(0,x-radius):min(x+radius+1,img.shape[1])].copy()
   return vicinity
+def test_moving_point(seed_pixel_pool, contour, potential_seed, move_point):
+  dist_to_contour = cv2.pointPolygonTest(contour, potential_seed, measureDist=True)
+  seed_vicinity = get_vicinity(seed_pixel_pool, potential_seed, radius = 2)
+  seed_vicinity_not_all_bright = invert_binary(seed_vicinity).sum() > 0
+  # initialize prev_dist_to_contour with a large value
+  prev_dist_to_contour = max(seed_pixel_pool.shape)
+  while dist_to_contour <= 0 or seed_vicinity_not_all_bright:
+    # moving point
+    potential_seed = move_point(*potential_seed)
+    # get dist to contour and check vicinity all bright or not
+    dist_to_contour = cv2.pointPolygonTest(contour, potential_seed, measureDist=True)
+    seed_vicinity = get_vicinity(seed_pixel_pool, potential_seed, radius = 2)
+    seed_vicinity_not_all_bright = invert_binary(seed_vicinity).sum() > 0
+    # check if going in the wrong direction outside the contour
+    if dist_to_contour <= 0 and abs(dist_to_contour) > abs(prev_dist_to_contour):
+      return None
+    # save current dist as prev for comparison in the next iteration
+    prev_dist_to_contour = dist_to_contour
+  # exiting whilte looping meaning seed meet criteria
+  return potential_seed
 def create_range_around(hsv_code, radius = (3,10,10)):
   lower_bound, upper_bound = [], []
   for i in range(len(hsv_code)):
@@ -1373,7 +1414,6 @@ def create_shapefile_from_df(filepath, dataframe, properties_columns, geometry_c
   shp_file.close()
 
 #==================================================================================================#
-
 
 
 
