@@ -842,6 +842,12 @@ def create_hierarchy_df(hierarchy):
   hierarchy_df['level'] = hierarchy_df['level'].apply(int)
   return hierarchy_df
 
+def get_contour_area_size(cnt):
+  try:
+    return cv2.contourArea(cnt)
+  except TypeError as e:
+    return cv2.contourArea(np.float32(cnt))
+
 def find_contours(img, min_area_size = 1000, max_area_size = None, top_k = None, color_mode = 'rainow', border_width = 2, show = True, only_exterior = False, only_lowest_k = None, verbose = True):
 
   img = img.copy()
@@ -856,11 +862,10 @@ def find_contours(img, min_area_size = 1000, max_area_size = None, top_k = None,
   else:
     contours, hierarchy = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-  contours = [cnt for cnt in contours if cv2.contourArea(cnt)>=min_area_size]
+  contours = [cnt for cnt in contours if get_contour_area_size(cnt)>=min_area_size]
   if max_area_size != None:
-    contours = [cnt for cnt in contours if cv2.contourArea(cnt)<=max_area_size]
-
-  contours = sorted(contours, key=cv2.contourArea, reverse = True)
+    contours = [cnt for cnt in contours if get_contour_area_size(cnt)<=max_area_size]
+  contours = sorted(contours, key=lambda cnt: get_contour_area_size(cnt), reverse = True)
   if verbose:
     print(len(contours),'contours found.')
 
