@@ -1,5 +1,15 @@
 # # Please install the required Python libraries
 
+# !conda install pandas
+# !conda install numpy
+# !conda install jupyter
+# !conda install requests
+# !conda install -c anaconda beautifulsoup4
+# !conda install soupsieve -y
+# !conda install lxml -y
+# !pip install selenium
+# !pip install webdriver_manager
+
 # !pip3 install --upgrade pandas # library for manipulating structured data
 # !pip3 install --upgrade numpy # library for fundamentals of array computing
 # !pip3 install --upgrade requests # library for making request for the static websites
