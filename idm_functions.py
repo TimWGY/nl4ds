@@ -221,7 +221,7 @@ def mark_ms_ocr_result(input_image_filepath, components_df, output_image_filepat
 
   for _, row in components_df.iterrows():
 
-    bbox, ocr_text, right_side_center = row['bounding_box'], row['text'], row['bbox_right_side_center']
+    bbox, ocr_text, right_side_center = row['bounding_box'], row['text'], row.get('bbox_right_side_center',None)
     
     # bounding box
     vertices = [(bbox[i], bbox[i + 1]) for i in range(0, len(bbox), 2)]
@@ -231,8 +231,9 @@ def mark_ms_ocr_result(input_image_filepath, components_df, output_image_filepat
     # text
     plt.text(vertices[1][0], vertices[1][1], ocr_text, fontsize=fontsize, color='r', va="top")
 
-    # right side center dot
-    plt.text(right_side_center[0], right_side_center[1], '.', fontsize=8, color='#66FF66', ha='left', va="baseline")
+    if right_side_center != None:
+      # right side center dot
+      plt.text(right_side_center[0], right_side_center[1], '.', fontsize=8, color='#66FF66', ha='left', va="baseline")
 
   if output_image_filepath != '':
     plt.savefig(output_image_filepath, bbox_inches='tight', pad_inches=0)
@@ -281,7 +282,7 @@ def ms_ocr(img_path, mark_image = True, show_numeric = False, fontsize = 10, fig
     if not show_numeric:
       comp_df = comp_df[~(comp_df['text'].str.isnumeric())]
     ocr_result_marked_img_path = img_path.split('.')[0] + '_ocr_result_marked_img.' + img_path.split('.')[1]
-    mark_ms_ocr_result(img_path, comp_df, filename=ocr_result_marked_img_path, fontsize=fontsize, figsize=figsize, dpi=dpi)
+    mark_ms_ocr_result(img_path, comp_df, output_image_filepath=ocr_result_marked_img_path, fontsize=fontsize, figsize=figsize, dpi=dpi)
 
 ############# UTILS FOR BASCI PREPROCESSING BEFORE OCR #############
 
