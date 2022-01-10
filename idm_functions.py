@@ -347,7 +347,9 @@ def get_vector_direction(vector, rounding = 1):
   x, y = vector
   return np.round(np.arctan2(y, x) * 180 / np.pi, rounding)
 
-
+def cv2_contourize(np_bbox): 
+  return np.array(np_bbox).reshape((-1,1,2)).astype(np.int32)
+  
 def get_bbox_features(bbox):
 
   widths = euc_dist(bbox[0], bbox[1]), euc_dist(bbox[2], bbox[3])
