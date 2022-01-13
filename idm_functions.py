@@ -321,9 +321,10 @@ def invert_binary(img):
   return cv2.bitwise_not(img)
 def adaptive_threshold(img, size = 9, C = 18):
   return cv2.adaptiveThreshold(img.copy(), 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, size, C)
-def otsu_threshold(img):
+def otsu_threshold(img, verbose=False):
   threshold_value, binarized_img = cv2.threshold(img,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-  print('The threshold value found is', threshold_value)
+  if verbose:
+    print('The threshold value found is', threshold_value)
   return binarized_img
 
 #==================================================================================================#
@@ -537,21 +538,26 @@ def cut_png_into_pngs(path, window_side_length, window_stride = None, output_dir
   dataset_height, dataset_width, dataset_band_count = im_rgb.shape
 
   aux_xml_filepath = path.replace('.png','.png.aux.xml')
-  affine_info_string = repr(create_transform_matrix(read_geotransform_parameters(aux_xml_filepath)))
 
+  if os.path.exists(aux_xml_filepath) and aux_xml_filepath != path:
 
-  area_per_pixel = calculate_area_per_pixel(path)
+    affine_info_string = repr(create_transform_matrix(read_geotransform_parameters(aux_xml_filepath)))
 
-  dataset_meta_string = "{'driver': 'GTiff', 'dtype': 'uint8', 'nodata': None, 'width': "+str(dataset_width)+", 'height': "+str(dataset_height)+", 'count': 4, 'crs': CRS.from_epsg(4326), 'transform': "+affine_info_string+", 'area_per_pixel':"+str(area_per_pixel)+"}"
-  print(dataset_meta_string)
+    area_per_pixel = calculate_area_per_pixel(path)
 
-  dataset_meta_string = str(dataset_meta)
-  dataset_meta_string = dataset_meta_string.replace('\n','')
-  dataset_meta_string = re.sub(r'CRS\.from_epsg\((\d+)\)',r"'epsg:\1'",dataset_meta_string)
-  dataset_meta_string = re.sub(r'Affine\((.*?)\)',r'[\1]',dataset_meta_string)
+    dataset_meta_string = "{'driver': 'GTiff', 'dtype': 'uint8', 'nodata': None, 'width': "+str(dataset_width)+", 'height': "+str(dataset_height)+", 'count': 4, 'crs': CRS.from_epsg(4326), 'transform': "+affine_info_string+", 'area_per_pixel':"+str(area_per_pixel)+"}"
+    print(dataset_meta_string)
 
-  with open(output_directory_path +'/'+ 'metadata.txt', 'w') as f:
-    f.write(dataset_meta_string)
+    dataset_meta_string = str(dataset_meta)
+    dataset_meta_string = dataset_meta_string.replace('\n','')
+    dataset_meta_string = re.sub(r'CRS\.from_epsg\((\d+)\)',r"'epsg:\1'",dataset_meta_string)
+    dataset_meta_string = re.sub(r'Affine\((.*?)\)',r'[\1]',dataset_meta_string)
+
+    with open(output_directory_path +'/'+ 'metadata.txt', 'w') as f:
+      f.write(dataset_meta_string)
+  
+  else:
+    print('No auxiliary xml found.')
 
   window_width_indices = range(dataset_width//window_stride+1)
   window_height_indices = range(dataset_height//window_stride+1)
@@ -587,6 +593,7 @@ def cut_png_into_pngs(path, window_side_length, window_stride = None, output_dir
 
   cropped_image_filepath_list = sorted(set(cropped_image_filepath_list))
   return cropped_image_filepath_list
+  
 
 #==================================================================================================#
 
@@ -1301,7 +1308,8 @@ def detect_duplicates(df, dedup_procedure = 'AC', minimum_area_thres = 20*20, ti
     # Singletons are naturally not duplicates (although the choice of eps in dbscan could lead to some duplicates not detected, catch them later)
     # Thus, we look at non single tight_dbscan_cluster_id
     cluster_id_list = get_non_single_elements(df, 'tight_dbscan_cluster_id')
-    cluster_id_list.remove(-1)
+    if -1 in cluster_id_list:
+      cluster_id_list.remove(-1)
 
     for cluster_id in cluster_id_list:
 
@@ -1331,7 +1339,8 @@ def detect_duplicates(df, dedup_procedure = 'AC', minimum_area_thres = 20*20, ti
     df['loose_dbscan_cluster_id'] = get_dbscan_labels(df, 'bbox_center', radius = loose_dbscan_radius)
 
     cluster_id_list = get_non_single_elements(df, 'loose_dbscan_cluster_id')
-    cluster_id_list.remove(-1)
+    if -1 in cluster_id_list:
+      cluster_id_list.remove(-1)
 
     for cluster_id in cluster_id_list:
 
