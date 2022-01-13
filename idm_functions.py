@@ -391,8 +391,13 @@ def get_area_size_from_geo_point_list(geo_point_list):
   """
   polygon = shapely_polygon(geo_point_list)
   geod = Geod(ellps="WGS84")
-  poly_area, poly_perimeter = geod.geometry_area_perimeter(polygon)
-  return int(poly_area)
+  try:
+    poly_area, poly_perimeter = geod.geometry_area_perimeter(polygon)
+    return int(poly_area)
+  except:
+    print(geo_point_list)
+    return polygon
+    raise
 
 def calculate_area_per_pixel(raw_image_filepath):
   if raw_image_filepath.endswith('.tif'):
