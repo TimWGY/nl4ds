@@ -975,13 +975,15 @@ def stop_at_abrupt_change(contours, sudden_change_ratio = 10):
     output_contours.append(cnt)
     prev_cnt_size = cnt_size
   return output_contours
-
+def hsv2bgr(h,s=1.0,v=1.0):
+  r,g,b = hsv_to_rgb(h,s,v)
+  return (b,g,r)
 
 ###### VISUALIZE CONTOURS ######
-def draw_many_contours(img, contours, dpi=None, border_width=2, n_colors = 8, font_scale = 1, is_bgr = True, fill_inside = False):
+def draw_many_contours(img, contours, text_content_list=None, dpi=None, border_width=2, n_colors = 10, font_scale = 1, is_bgr = True, save_not_show = False):
   
   color_range = range(1,n_colors*10+1,n_colors)
-  colors = [hsv2rgb(num/100) for num in color_range]
+  colors = [hsv2bgr(num/100) if is_bgr else hsv2rgb(num/100) for num in color_range]
 
   if len(img.shape)==2:
     colored_img = grey_to_bgr(img)
@@ -990,6 +992,8 @@ def draw_many_contours(img, contours, dpi=None, border_width=2, n_colors = 8, fo
       colored_img = img.copy()
     else:
       colored_img = rgb_to_bgr(img)
+
+  text_content_list = range(len(contours)) if text_content_list is None else text_content_list
 
   for i in range(len(contours)):
     cnt = contours[i]
@@ -1001,7 +1005,7 @@ def draw_many_contours(img, contours, dpi=None, border_width=2, n_colors = 8, fo
     cy = int(M['m01']/M['m00'])
     text_position = (cx, cy)
     
-    text_content = str(i)
+    text_content = text_content_list[i]
     font_family = cv2.FONT_HERSHEY_SIMPLEX
     font_scale = font_scale
     color = color
@@ -1010,10 +1014,16 @@ def draw_many_contours(img, contours, dpi=None, border_width=2, n_colors = 8, fo
 
     colored_img = cv2.putText(colored_img, text_content , text_position, font_family, font_scale, color, thickness, line_type)
   
-  if dpi != None:
-    imshow(colored_img, dpi = dpi)
+  if save_not_show:
+
+    return colored_img
+
   else:
-    imshow(colored_img)
+
+    if dpi != None:
+      imshow(colored_img, dpi = dpi)
+    else:
+      imshow(colored_img)
 
 ###### SELECT WITH CONTOURS ######
 def mask_with_contours(img, contours):
