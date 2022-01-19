@@ -318,9 +318,12 @@ def resize_img(img_path, target_size):
     return out_img_path
 
 def create_vertical_flipped_img(img_filepath):
-  img = reshape_as_image(rasterio.open(img_filepath).read())[:,:,:3]
+  if img_filepath.endswith('.tif'):
+    img = reshape_as_image(rasterio.open(img_filepath).read())[:,:,:3]
+  else:
+    img = cv2.imread(img_filepath)[:,:,:3]
   flipped_img = cv2.flip(img, 0)
-  flipped_img_path = '/'.join(img_filepath.split('/')[:-1])+'/'+img_filepath.split('/')[-1].split('.')[0]+'.png'
+  flipped_img_path = '/'.join(img_filepath.split('/')[:-1])+'/'+img_filepath.split('/')[-1].split('.')[0]+'__vflip.png'
   cv2.imwrite(flipped_img_path, flipped_img)
   return flipped_img_path
 
