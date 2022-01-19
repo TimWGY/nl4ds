@@ -155,7 +155,7 @@ if need_ocr_call[0].lower() == 'y':
   computervision_client = ComputerVisionClient(input('\nEndpoint?\n'), CognitiveServicesCredentials(input('\nKey?\n')))
 clear_output()
 
-def get_ms_ocr_result(read_image_path, wait_interval=10):
+def get_ms_ocr_result(read_image_path, wait_interval=10): 
 
   # Open the image
   read_image = open(read_image_path, "rb")
@@ -316,6 +316,13 @@ def resize_img(img_path, target_size):
   else:
     print('Resized version of the image already exists.')
     return out_img_path
+
+def create_vertical_flipped_img(img_filepath):
+  img = reshape_as_image(rasterio.open(img_filepath).read())[:,:,:3]
+  flipped_img = cv2.flip(img, 0)
+  flipped_img_path = '/'.join(img_filepath.split('/')[:-1])+'/'+img_filepath.split('/')[-1].split('.')[0]+'.png'
+  cv2.imwrite(flipped_img_path, flipped_img)
+  return flipped_img_path
 
 def invert_binary(img):
   return cv2.bitwise_not(img)
@@ -1387,10 +1394,13 @@ def detect_duplicates(df, dedup_procedure = 'AC', minimum_area_thres = 20*20, ti
             smaller_shape = same_term_group['shapely_polygon'][j]
 
             smaller_shape_area_size = same_term_group['shapely_polygon_area_size'][j]
-            intersection_area_size = larger_shape.intersection(smaller_shape).area
+            try:
+              intersection_area_size = larger_shape.intersection(smaller_shape).area
+            except:
+              intersection_area_size = None
 
             # print(round(intersection_area_size/smaller_shape_area_size,2))
-            if intersection_area_size/smaller_shape_area_size > intersection_cover_smaller_shape_by:  
+            if intersection_area_size == None or intersection_area_size/smaller_shape_area_size > intersection_cover_smaller_shape_by:  
               # If intersection between larger and smaller shapes cover the majority of the smaller shape, 
               # then we can say that the smaller shape is contained in the larger shape, thus likely a duplicate
               ocr_entry_ids_to_drop.append(smaller_shape_ocr_entry_id)
