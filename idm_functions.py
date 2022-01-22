@@ -221,11 +221,13 @@ def mark_ms_ocr_result(input_image_filepath, components_df, output_image_filepat
 
   for _, row in components_df.iterrows():
 
-    bbox, ocr_text, right_side_center = row['bounding_box'], row['text'], row.get('bbox_right_side_center',None)
+    bbox, ocr_text, confidence, right_side_center = row['bounding_box'], row['text'], row['confidence'], row.get('bbox_right_side_center',None)
     
     # bounding box
     vertices = [(bbox[i], bbox[i + 1]) for i in range(0, len(bbox), 2)]
-    polygon_patch = mpb_polygon(vertices, closed=True, fill=False, linewidth=0.2, color='b')
+    # Color Scheme Reference: https://www.schemecolor.com/cool-blues.php
+    # bbox_color = '#034698' if confidence >= 0.8 else '#006CBB' if confidence >= 0.6 else '#28A7EA' if confidence >= 0.4 else '#45BDEE' if confidence >= 0.2 else '#7AD6F4'
+    polygon_patch = mpb_polygon(vertices, closed=True, fill=False, linewidth=0.6, color='b', alpha=confidence)
     ax.axes.add_patch(polygon_patch)
     
     # text
@@ -247,6 +249,7 @@ def mark_ms_ocr_result(input_image_filepath, components_df, output_image_filepat
     plt.close('all')   
     del ax
     gc.collect()
+
 
 def save_dict_to_json(dic, filepath):
   with open(filepath, 'w') as f:
@@ -317,15 +320,12 @@ def resize_img(img_path, target_size):
     print('Resized version of the image already exists.')
     return out_img_path
 
-def create_vertical_flipped_img(img_filepath):
-  if img_filepath.endswith('.tif'):
-    img = reshape_as_image(rasterio.open(img_filepath).read())[:,:,:3]
-  else:
-    img = cv2.imread(img_filepath)[:,:,:3]
-  flipped_img = cv2.flip(img, 0)
-  flipped_img_path = '/'.join(img_filepath.split('/')[:-1])+'/'+img_filepath.split('/')[-1].split('.')[0]+'__vflip.png'
-  cv2.imwrite(flipped_img_path, flipped_img)
-  return flipped_img_path
+def rotate_180_degree(img_filepath):
+  img = cv2.imread(img_filepath)[:,:,:3]
+  rotated_img = cv2.flip(cv2.flip(img, 0), 1)
+  rotated_img_path = '/'.join(img_filepath.split('/')[:-1])+'/'+img_filepath.split('/')[-1].split('.')[0]+'__rotated.png'
+  cv2.imwrite(rotated_img_path, rotated_img)
+  return rotated_img_path
 
 def invert_binary(img):
   return cv2.bitwise_not(img)
@@ -382,15 +382,28 @@ def get_bbox_features(bbox):
 
   return width, width_diff_prop, height, height_diff_prop, reading_direction, center, left_side_center, right_side_center
 
+def add_bbox_features_to_table(map_ocr_results_table, ocr_entry_id_start = 1):
+
+  # Calculate bounding box features and add them as columns
+  map_ocr_results_table[['bbox_'+col for col in 'width, width_diff_prop, height, height_diff_prop, reading_direction, center, left_side_center, right_side_center'.split(', ')]] = pd.DataFrame(map_ocr_results_table['bounding_box'].apply(get_bbox_features).tolist(), index = map_ocr_results_table.index)
+  # Convert numpy ndarray column to nested list format for better I/O from/to CSV
+  map_ocr_results_table['bounding_box'] = map_ocr_results_table['bounding_box'].apply(lambda x: x.tolist())
+  map_ocr_results_table['bbox_center'] = map_ocr_results_table['bbox_center'].apply(lambda x: x.tolist())
+  map_ocr_results_table['bbox_left_side_center'] = map_ocr_results_table['bbox_left_side_center'].apply(lambda x: x.tolist())
+  map_ocr_results_table['bbox_right_side_center'] = map_ocr_results_table['bbox_right_side_center'].apply(lambda x: x.tolist())
+
+  # Add a unique id for each ocr entry (each row in the table), this is unique within the original full image/map.
+  map_ocr_results_table['ocr_entry_id'] = range(ocr_entry_id_start, ocr_entry_id_start + len(map_ocr_results_table))
+
+  return map_ocr_results_table[['map_id', 'ocr_entry_id', 'text', 'confidence', 'bounding_box', 'bbox_width', 'bbox_width_diff_prop', 'bbox_height', 'bbox_height_diff_prop', 'bbox_reading_direction',  'bbox_center', 'bbox_left_side_center', 'bbox_right_side_center']]
+
 #==================================================================================================#
 
 
 
 
 
-
-
-#======================================== CUT / CROP IMAGE ========================================#
+#======================================== CUT / CROP / RE-COMBINE IMAGE ========================================#
 
 ############# UTILS FOR CUT / CROP IMAGE #############
 
@@ -524,8 +537,9 @@ def cut_tiff_into_pngs(path, window_side_length, window_stride = None, output_di
   cropped_image_filepath_list = sorted(set(cropped_image_filepath_list))
   return cropped_image_filepath_list
 
+######################################################
 
-def cut_png_into_pngs(path, window_side_length, window_stride = None, output_directory_path = None, skip_if_directory_exists = False):
+def cut_image_into_pngs(path, window_side_length, window_stride = None, output_directory_path = None, skip_if_directory_exists = False, georeferenced = False):
 
   dataset_name = path.split('/')[-1].split('.')[0]
 
@@ -550,28 +564,20 @@ def cut_png_into_pngs(path, window_side_length, window_stride = None, output_dir
 
   dataset_height, dataset_width, dataset_band_count = im_rgb.shape
 
-  aux_xml_filepath = path.replace('.png','.png.aux.xml')
-
-  if os.path.exists(aux_xml_filepath) and aux_xml_filepath != path:
-
+  file_extension = path.split('.')[-1]
+  aux_xml_filepath = path.replace('.'+file_extension,'.'+file_extension+'.aux.xml')
+  if georeferenced and os.path.exists(aux_xml_filepath) and aux_xml_filepath != path:
     affine_info_string = repr(create_transform_matrix(read_geotransform_parameters(aux_xml_filepath)))
-
     area_per_pixel = calculate_area_per_pixel(path)
-
     dataset_meta_string = "{'driver': 'GTiff', 'dtype': 'uint8', 'nodata': None, 'width': "+str(dataset_width)+", 'height': "+str(dataset_height)+", 'count': 4, 'crs': CRS.from_epsg(4326), 'transform': "+affine_info_string+", 'area_per_pixel':"+str(area_per_pixel)+"}"
     print(dataset_meta_string)
-
     dataset_meta_string = str(dataset_meta)
     dataset_meta_string = dataset_meta_string.replace('\n','')
     dataset_meta_string = re.sub(r'CRS\.from_epsg\((\d+)\)',r"'epsg:\1'",dataset_meta_string)
     dataset_meta_string = re.sub(r'Affine\((.*?)\)',r'[\1]',dataset_meta_string)
-
     with open(output_directory_path +'/'+ 'metadata.txt', 'w') as f:
       f.write(dataset_meta_string)
   
-  else:
-    print('No auxiliary xml found.')
-
   window_width_indices = range(dataset_width//window_stride+1)
   window_height_indices = range(dataset_height//window_stride+1)
 
@@ -605,8 +611,39 @@ def cut_png_into_pngs(path, window_side_length, window_stride = None, output_dir
       cropped_image_filepath_list.append(output_path)
 
   cropped_image_filepath_list = sorted(set(cropped_image_filepath_list))
-  return cropped_image_filepath_list
-  
+  return cropped_image_filepath_list  
+
+######################################################
+
+def combine_relative_tables(relative_table_filepath_list, rotated = False):
+
+  map_ocr_results_table = pd.DataFrame()
+  for ocr_result_table_path in relative_table_filepath_list:
+    ### For each crop of map ###
+    table = pd.read_csv(ocr_result_table_path)
+    # Take data in the filename and put them into the table
+    table_filename = ocr_result_table_path.split('/')[-1]
+    map_id = int(table_filename.split('_')[0])
+    wsl = int(re.findall('_wsl_(\d+)_',table_filename)[0])
+    table['map_id'] = map_id
+    table['x_offset'] = int(re.findall('_xoff(\d+)_',table_filename)[0])
+    table['y_offset'] = int(re.findall('_yoff(\d+)_',table_filename)[0])
+    table['wsl'] = wsl
+    map_ocr_results_table = map_ocr_results_table.append(table, ignore_index=True)
+
+  # Rename "bounding box" column in the raw table to be "relative bounding box"
+  map_ocr_results_table = map_ocr_results_table.rename(columns={'bounding_box':'relative_bounding_box'})
+
+  # Evaluate relative bounding box, string -> list
+  map_ocr_results_table['relative_bounding_box'] = map_ocr_results_table['relative_bounding_box'].apply(ast.literal_eval)
+
+  if rotated:
+    map_ocr_results_table['relative_bounding_box'] =   map_ocr_results_table['relative_bounding_box'].apply(lambda li: [[wsl - li[0], wsl - li[1]], [wsl - li[2], wsl - li[3]], [wsl - li[4], wsl - li[5]], [wsl - li[6], wsl - li[7]]])
+
+  # Add x and y offsets so that "relative bounding box" become "bounding box" in the original full image/map
+  map_ocr_results_table['bounding_box'] = map_ocr_results_table[['relative_bounding_box','x_offset','y_offset']].apply(lambda row: np.array(row['relative_bounding_box']).reshape(-1,2) + np.array((row['x_offset'], row['y_offset'])), axis=1)
+
+  return map_ocr_results_table
 
 #==================================================================================================#
 
@@ -1301,115 +1338,88 @@ def get_dbscan_labels(data, field, radius = 0.5):
   clabels = clusterer.labels_
   return clabels
 
-def detect_duplicates(df, dedup_procedure = 'AC', minimum_area_thres = 20*20, tight_dbscan_radius = 20, width_difference_thres = 0.1, height_difference_thres = 0.1, reading_direction_difference_thres = 15, loose_dbscan_radius = 100, fuzzy_scorer=fuzz.partial_ratio, fuzzy_score_cutoff=80, intersection_cover_smaller_shape_by = 0.8):
+def detect_duplicates(df, minimum_text_area_side_length = 20, minimum_area_thres = None, dbscan_radius = None, fuzzy_scorer=fuzz.partial_ratio, fuzzy_score_cutoff=80, intersection_cover_smaller_shape_by = 0.8):
 
+  ## If not explicitly specified, initialize thresholds based on minimum_text_area_side_length (measured in pixels)
+  if minimum_area_thres is None:
+    minimum_area_thres = int(minimum_text_area_side_length**2)
+  if dbscan_radius is None: # scale by 5, an experience based choice which can be fine-tuned
+    dbscan_radius = int(2 * minimum_text_area_side_length**2)
+
+  ## Placeholder for outputs
   ocr_entry_ids_to_drop = []
-  backup_ids_mapping = {} # for data provenance and back-tracing
+  backup_ids_mapping = {} # for data provenance and backtracking errors
 
   ## -------------------------------------------------------------------------------------------------
 
-  ## [A] "basic quality check" within "the whole image"
-  if 'A' in dedup_procedure:
+  ## "basic quality check" within "the whole image"
     
-    # criteria is 'cleaned text is not empty & cleaned text is not numeric & bounding box area size > thres'
-    # some entries with low ocr confidence are correct, so not using ocr confidence as criteria
-    poor_quality_filter = (df['cleaned_text'].apply(len)==0) | (df['cleaned_text'].str.isnumeric()) | (df['bbox_area']<minimum_area_thres)
-    poor_quality_ocr_entry_ids = df.loc[poor_quality_filter, 'ocr_entry_id'].tolist()
-    ocr_entry_ids_to_drop += poor_quality_ocr_entry_ids
-    backup_ids_mapping[-1] = poor_quality_ocr_entry_ids
-    df = df[~df['ocr_entry_id'].isin(ocr_entry_ids_to_drop)].copy()
-  
+  # criteria is 'cleaned text is not empty & cleaned text is not numeric & bounding box area size > thres'
+  # some entries with low ocr confidence are correct, so not using ocr confidence as criteria
+  poor_quality_filter = (df['cleaned_text'].apply(len)==0) | (df['cleaned_text'].str.isnumeric()) | (df['bbox_area']<minimum_area_thres)
+  poor_quality_ocr_entry_ids = df.loc[poor_quality_filter, 'ocr_entry_id'].tolist()
+  ocr_entry_ids_to_drop += poor_quality_ocr_entry_ids
+  backup_ids_mapping[-1] = poor_quality_ocr_entry_ids
+  df = df[~df['ocr_entry_id'].isin(ocr_entry_ids_to_drop)].copy()
+
   ## -------------------------------------------------------------------------------------------------
 
   ## For de-duplication purpose, cluster the ocr bounding box by their centers' locations on the image
 
-  ## [B] "direct de-duplication" within "tight clusters" [deprecated]
-  if 'B' in dedup_procedure:
+  ## "intersection based de-duplications" within "clusters"
 
-    df['tight_dbscan_cluster_id'] = get_dbscan_labels(df, 'bbox_center', radius = tight_dbscan_radius)
+  df['dbscan_cluster_id'] = get_dbscan_labels(df, 'bbox_center', radius = dbscan_radius)
 
-    # Singletons are naturally not duplicates (although the choice of eps in dbscan could lead to some duplicates not detected, catch them later)
-    # Thus, we look at non single tight_dbscan_cluster_id
-    cluster_id_list = get_non_single_elements(df, 'tight_dbscan_cluster_id')
-    if -1 in cluster_id_list:
-      cluster_id_list.remove(-1)
+  cluster_id_list = get_non_single_elements(df, 'dbscan_cluster_id')
+  if -1 in cluster_id_list:
+    cluster_id_list.remove(-1)
 
-    for cluster_id in cluster_id_list:
+  for cluster_id in cluster_id_list:
 
-      # Promote the most confident and longest entry to the first entry
-      cluster_df = df[df['tight_dbscan_cluster_id']==cluster_id].copy()
-      cluster_df['text_length'] = cluster_df['text'].apply(len)
-      cluster_df = cluster_df.sort_values(['rounded_confidence','text_length'],ascending=[False, False]).reset_index(drop=True)
+    cluster_df = df[df['dbscan_cluster_id'] == cluster_id].copy()
 
-      # Check if all entries in the same cluster have small differences in bbox features
-      difference_rates = cluster_df[['bbox_width','bbox_height','bbox_reading_direction']].diff().applymap(abs).mean(axis=0)  / (cluster_df['bbox_width'][0], cluster_df['bbox_height'][0], 1)
+    cluster_df['fuzzy_matched_text'] = cluster_df['text'].map(self_fuzzy_cluster(cluster_df, 'text', scorer = fuzzy_scorer, score_cutoff = fuzzy_score_cutoff))
 
-      # If 1) differences are small and 2) all entries agree on text content
-      if np.abs(difference_rates['bbox_width'])<width_difference_thres and np.abs(difference_rates['bbox_height'])<height_difference_thres and np.abs(difference_rates['bbox_reading_direction'])<reading_direction_difference_thres and cluster_df['text'].nunique() == 1:
-        # Add every ocr_entry_id in this tight cluster "except the first" to the ocr_entry_ids_to_drop list
-        ocr_entry_id_list = cluster_df['ocr_entry_id'].tolist()
-        ocr_entry_ids_to_drop += ocr_entry_id_list[1:]
-        backup_ids_mapping[ocr_entry_id_list[0]] = backup_ids_mapping.get(ocr_entry_id_list[0], [])+ocr_entry_id_list[1:]
+    repeated_terms = get_non_single_elements(cluster_df, 'fuzzy_matched_text')
 
-    df = df[~df['ocr_entry_id'].isin(ocr_entry_ids_to_drop)].copy()
+    for term in repeated_terms:
+      
+      same_term_group = cluster_df[cluster_df['fuzzy_matched_text']==term].copy()
+      same_term_group['shapely_polygon'] = same_term_group['bounding_box'].apply(lambda x: shapely_polygon(x))
+      same_term_group['shapely_polygon_area_size'] = same_term_group['shapely_polygon'].apply(lambda x: x.area)
+      same_term_group = same_term_group.sort_values('shapely_polygon_area_size', ascending=False).reset_index(drop=True)
 
-  ## -------------------------------------------------------------------------------------------------
+      for i in range(len(same_term_group)-1):
+        # print('i:',i)
+        larger_shape_ocr_entry_id = same_term_group['ocr_entry_id'][i]
+        if larger_shape_ocr_entry_id in ocr_entry_ids_to_drop:
+          # print('skip large')
+          continue
+        larger_shape = same_term_group['shapely_polygon'][i]
 
-  ## [C] "intersection based de-duplications" within "loose clusters"
-
-  if 'C' in dedup_procedure:
-
-    df['loose_dbscan_cluster_id'] = get_dbscan_labels(df, 'bbox_center', radius = loose_dbscan_radius)
-
-    cluster_id_list = get_non_single_elements(df, 'loose_dbscan_cluster_id')
-    if -1 in cluster_id_list:
-      cluster_id_list.remove(-1)
-
-    for cluster_id in cluster_id_list:
-
-      cluster_df = df[df['loose_dbscan_cluster_id'] == cluster_id].copy()
-
-      cluster_df['fuzzy_matched_text'] = cluster_df['text'].map(self_fuzzy_cluster(cluster_df, 'text', scorer = fuzzy_scorer, score_cutoff = fuzzy_score_cutoff))
-
-      repeated_terms = get_non_single_elements(cluster_df, 'fuzzy_matched_text')
-
-      for term in repeated_terms:
-        
-        same_term_group = cluster_df[cluster_df['fuzzy_matched_text']==term].copy()
-        same_term_group['shapely_polygon'] = same_term_group['bounding_box'].apply(lambda x: shapely_polygon(x))
-        same_term_group['shapely_polygon_area_size'] = same_term_group['shapely_polygon'].apply(lambda x: x.area)
-        same_term_group = same_term_group.sort_values('shapely_polygon_area_size', ascending=False).reset_index(drop=True)
-
-        for i in range(len(same_term_group)-1):
-          # print('i:',i)
-          larger_shape_ocr_entry_id = same_term_group['ocr_entry_id'][i]
-          if larger_shape_ocr_entry_id in ocr_entry_ids_to_drop:
-            # print('skip large')
+        for j in range(i+1, len(same_term_group)):
+          # print('j:',j)
+          smaller_shape_ocr_entry_id = same_term_group['ocr_entry_id'][j]
+          if smaller_shape_ocr_entry_id in ocr_entry_ids_to_drop:
+            # print('skip small')
             continue
-          larger_shape = same_term_group['shapely_polygon'][i]
+          smaller_shape = same_term_group['shapely_polygon'][j]
 
-          for j in range(i+1, len(same_term_group)):
-            # print('j:',j)
-            smaller_shape_ocr_entry_id = same_term_group['ocr_entry_id'][j]
-            if smaller_shape_ocr_entry_id in ocr_entry_ids_to_drop:
-              # print('skip small')
-              continue
-            smaller_shape = same_term_group['shapely_polygon'][j]
+          smaller_shape_area_size = same_term_group['shapely_polygon_area_size'][j]
+          
+          ## try except to catch the error where one or both of the shapes are invalid
+          try:
+            intersection_area_size = larger_shape.intersection(smaller_shape).area
+          except:
+            intersection_area_size = None
 
-            smaller_shape_area_size = same_term_group['shapely_polygon_area_size'][j]
-            try:
-              intersection_area_size = larger_shape.intersection(smaller_shape).area
-            except:
-              intersection_area_size = None
+          if intersection_area_size == None or intersection_area_size/smaller_shape_area_size > intersection_cover_smaller_shape_by:  
+            # If intersection between larger and smaller shapes cover the majority of the smaller shape, 
+            # then we can say that the smaller shape is contained in the larger shape, thus likely a duplicate
+            ocr_entry_ids_to_drop.append(smaller_shape_ocr_entry_id)
+            backup_ids_mapping[larger_shape_ocr_entry_id] = backup_ids_mapping.get(larger_shape_ocr_entry_id, [])+[smaller_shape_ocr_entry_id]
 
-            # print(round(intersection_area_size/smaller_shape_area_size,2))
-            if intersection_area_size == None or intersection_area_size/smaller_shape_area_size > intersection_cover_smaller_shape_by:  
-              # If intersection between larger and smaller shapes cover the majority of the smaller shape, 
-              # then we can say that the smaller shape is contained in the larger shape, thus likely a duplicate
-              ocr_entry_ids_to_drop.append(smaller_shape_ocr_entry_id)
-              backup_ids_mapping[larger_shape_ocr_entry_id] = backup_ids_mapping.get(larger_shape_ocr_entry_id, [])+[smaller_shape_ocr_entry_id]
-
-    df = df[~df['ocr_entry_id'].isin(ocr_entry_ids_to_drop)].copy()
+  df = df[~df['ocr_entry_id'].isin(ocr_entry_ids_to_drop)].copy()
 
   ## -------------------------------------------------------------------------------------------------
 
