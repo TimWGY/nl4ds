@@ -262,7 +262,7 @@ def read_dict_from_json(filepath):
 
 ############# QUICK ACCESS OCR #############
 
-def ms_ocr(img_path, mark_image = True, show_numeric = False, fontsize = 10, figsize = (20,20), dpi = 150):
+def ms_ocr(img_path, mark_image = True, show_numeric = False, fontsize = 10, figsize = (20,20), dpi = 150, clear_plot=False):
 
   raw_ocr_result_filepath = img_path.split('.')[0] + '_raw_ocr_result.txt'
   if not os.path.exists(raw_ocr_result_filepath):
@@ -285,7 +285,7 @@ def ms_ocr(img_path, mark_image = True, show_numeric = False, fontsize = 10, fig
     if not show_numeric:
       comp_df = comp_df[~(comp_df['text'].str.isnumeric())]
     ocr_result_marked_img_path = img_path.split('.')[0] + '_ocr_result_marked_img.' + img_path.split('.')[1]
-    mark_ms_ocr_result(img_path, comp_df, output_image_filepath=ocr_result_marked_img_path, fontsize=fontsize, figsize=figsize, dpi=dpi)
+    mark_ms_ocr_result(img_path, comp_df, output_image_filepath=ocr_result_marked_img_path, fontsize=fontsize, figsize=figsize, dpi=dpi, clear_plot=clear_plot)
 
 ############# UTILS FOR BASCI PREPROCESSING BEFORE OCR #############
 
