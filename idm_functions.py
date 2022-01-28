@@ -207,13 +207,10 @@ def parse_ms_ocr_result(ms_ocr_result, return_words=True, confidence_threshold=0
 
   return components_df
 
-def mark_ms_ocr_result(input_image_filepath, components_df, output_image_filepath='', fontsize=10, figsize=(20,20), dpi=150, ravel=False, clear_plot=False):
+def mark_ms_ocr_result(input_image_filepath, components_df, output_image_filepath='', fontsize=10, figsize=(20,20), dpi=150, clear_plot=False):
 
   components_df = components_df.copy()
   
-  if ravel:
-    components_df['bounding_box'] = components_df['bounding_box'].apply(lambda x: x.ravel().tolist())
-
   image = Image.open(input_image_filepath)
 
   plt.figure(figsize=figsize, dpi=dpi)
@@ -224,9 +221,11 @@ def mark_ms_ocr_result(input_image_filepath, components_df, output_image_filepat
     bbox, ocr_text, confidence, right_side_center = row['bounding_box'], row['text'], row['confidence'], row.get('bbox_right_side_center',None)
     
     # bounding box
-    vertices = [(bbox[i], bbox[i + 1]) for i in range(0, len(bbox), 2)]
-    # Color Scheme Reference: https://www.schemecolor.com/cool-blues.php
-    # bbox_color = '#034698' if confidence >= 0.8 else '#006CBB' if confidence >= 0.6 else '#28A7EA' if confidence >= 0.4 else '#45BDEE' if confidence >= 0.2 else '#7AD6F4'
+    if all([len(x)==2 for x in bbox]):
+      vertices = bbox
+    else:
+      vertices = [(bbox[i], bbox[i + 1]) for i in range(0, len(bbox), 2)]
+    
     polygon_patch = mpb_polygon(vertices, closed=True, fill=False, linewidth=0.6, color='b', alpha=confidence)
     ax.axes.add_patch(polygon_patch)
     
@@ -1338,13 +1337,13 @@ def get_dbscan_labels(data, field, radius = 0.5):
   clabels = clusterer.labels_
   return clabels
 
-def detect_duplicates(df, minimum_text_area_side_length = 20, minimum_area_thres = None, dbscan_radius = None, fuzzy_scorer=fuzz.partial_ratio, fuzzy_score_cutoff=80, intersection_cover_smaller_shape_by = 0.8):
+def detect_duplicates(df, minimum_text_area_side_length = 20, minimum_area_thres = None, dbscan_radius = None, fuzzy_scorer=fuzz.partial_ratio, fuzzy_score_cutoff=80, intersection_cover_smaller_shape_by = 0.8, no_numeric = False):
 
   ## If not explicitly specified, initialize thresholds based on minimum_text_area_side_length (measured in pixels)
   if minimum_area_thres is None:
     minimum_area_thres = int(minimum_text_area_side_length**2)
   if dbscan_radius is None: # scale by 5, an experience based choice which can be fine-tuned
-    dbscan_radius = int(2 * minimum_text_area_side_length**2)
+    dbscan_radius = int(2 * minimum_text_area_side_length)
 
   ## Placeholder for outputs
   ocr_entry_ids_to_drop = []
@@ -1356,7 +1355,9 @@ def detect_duplicates(df, minimum_text_area_side_length = 20, minimum_area_thres
     
   # criteria is 'cleaned text is not empty & cleaned text is not numeric & bounding box area size > thres'
   # some entries with low ocr confidence are correct, so not using ocr confidence as criteria
-  poor_quality_filter = (df['cleaned_text'].apply(len)==0) | (df['cleaned_text'].str.isnumeric()) | (df['bbox_area']<minimum_area_thres)
+  poor_quality_filter = (df['cleaned_text'].apply(len)==0) | (df['bbox_area']<minimum_area_thres)
+  if no_numeric:
+    poor_quality_filter = poor_quality_filter | (df['cleaned_text'].str.isnumeric())
   poor_quality_ocr_entry_ids = df.loc[poor_quality_filter, 'ocr_entry_id'].tolist()
   ocr_entry_ids_to_drop += poor_quality_ocr_entry_ids
   backup_ids_mapping[-1] = poor_quality_ocr_entry_ids
@@ -1374,7 +1375,7 @@ def detect_duplicates(df, minimum_text_area_side_length = 20, minimum_area_thres
   if -1 in cluster_id_list:
     cluster_id_list.remove(-1)
 
-  for cluster_id in cluster_id_list:
+  for cluster_id in tqdm(cluster_id_list):
 
     cluster_df = df[df['dbscan_cluster_id'] == cluster_id].copy()
 
