@@ -1052,7 +1052,7 @@ def draw_many_contours(img, contours, text_content_list=None, dpi=None, border_w
     cy = int(M['m01']/M['m00'])
     text_position = (cx, cy)
     
-    text_content = text_content_list[i]
+    text_content = str(text_content_list[i])
     font_family = cv2.FONT_HERSHEY_SIMPLEX
     font_scale = font_scale
     color = color
