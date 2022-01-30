@@ -345,6 +345,53 @@ def otsu_threshold(img, verbose=False):
 
 
 
+
+
+
+#=============================== COLOR AND COLOR CODE CONVERSION ==================================#
+
+def rgb_to_grey(img):
+  return cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+def bgr_to_grey(img):
+  return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+def bgr_to_rgb(img):
+  return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+def rgb_to_bgr(img):
+  return cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+def grey_to_bgr(img):
+  return cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+def grey_to_rgb(img):
+  return cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+def hsv2rgb(h,s=1.0,v=1.0):
+    return tuple(round(i * 255) for i in colorsys.hsv_to_rgb(h,s,v))
+def hsv2bgr(h,s=1.0,v=1.0):
+  r,g,b = hsv2rgb(h,s,v)
+  return (b,g,r)
+
+def rgb_code_to_hsv_code(rgb_tuple):
+  pixel = np.zeros((1,1,3),dtype=np.uint8)
+  pixel[0,0,:] = rgb_tuple
+  return tuple([int(v) for v in list(cv2.cvtColor(pixel, cv2.COLOR_RGB2HSV)[0][0])])
+def rgb_code_to_lab_code(rgb_tuple):
+  pixel = np.zeros((1,1,3),dtype=np.uint8)
+  pixel[0,0,:] = rgb_tuple if isinstance(rgb_tuple,tuple) else tuple(rgb_tuple)
+  return tuple([int(v) for v in list(cv2.cvtColor(pixel, cv2.COLOR_RGB2LAB)[0][0])])
+def lab_code_to_rgb_code(lab_tuple):
+  pixel = np.zeros((1,1,3),dtype=np.uint8)
+  pixel[0,0,:] = lab_tuple if isinstance(lab_tuple,tuple) else tuple(lab_tuple)
+  return tuple([int(v) for v in list(cv2.cvtColor(pixel, cv2.COLOR_LAB2RGB)[0][0])])
+
+#==================================================================================================#
+
+
+
+
+
+
+
+
+
+
 #===================================== GET BBOX FEATURES ==========================================#
 
 ###### UTILS FOR GET_BBOX_FEATURES ######
@@ -846,40 +893,6 @@ def save_graph(filename = '', dpi = 150, padding = 0.3, transparent = False, add
 
 
 
-#=============================== COLOR AND COLOR CODE CONVERSION ==================================#
-
-def rgb_to_grey(img):
-  return cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-def bgr_to_grey(img):
-  return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-def bgr_to_rgb(img):
-  return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-def rgb_to_bgr(img):
-  return cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-def grey_to_bgr(img):
-  return cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-def grey_to_rgb(img):
-  return cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
-def hsv2rgb(h,s=1.0,v=1.0):
-    return tuple(round(i * 255) for i in colorsys.hsv_to_rgb(h,s,v))
-
-def rgb_code_to_hsv_code(rgb_tuple):
-  pixel = np.zeros((1,1,3),dtype=np.uint8)
-  pixel[0,0,:] = rgb_tuple
-  return tuple([int(v) for v in list(cv2.cvtColor(pixel, cv2.COLOR_RGB2HSV)[0][0])])
-def rgb_code_to_lab_code(rgb_tuple):
-  pixel = np.zeros((1,1,3),dtype=np.uint8)
-  pixel[0,0,:] = rgb_tuple if isinstance(rgb_tuple,tuple) else tuple(rgb_tuple)
-  return tuple([int(v) for v in list(cv2.cvtColor(pixel, cv2.COLOR_RGB2LAB)[0][0])])
-def lab_code_to_rgb_code(lab_tuple):
-  pixel = np.zeros((1,1,3),dtype=np.uint8)
-  pixel[0,0,:] = lab_tuple if isinstance(lab_tuple,tuple) else tuple(lab_tuple)
-  return tuple([int(v) for v in list(cv2.cvtColor(pixel, cv2.COLOR_LAB2RGB)[0][0])])
-
-#==================================================================================================#
-
-
-
 
 
 #========================= HIGH LEVEL GEOMETRY BASED FEATURE EXTRACTOR ============================#
@@ -1022,9 +1035,6 @@ def stop_at_abrupt_change(contours, sudden_change_ratio = 10):
     output_contours.append(cnt)
     prev_cnt_size = cnt_size
   return output_contours
-def hsv2bgr(h,s=1.0,v=1.0):
-  r,g,b = colorsys.hsv_to_rgb(h,s,v)
-  return (b,g,r)
 
 ###### VISUALIZE CONTOURS ######
 def draw_many_contours(img, contours, text_content_list=None, dpi=None, border_width=2, n_colors = 10, font_scale = 1, is_bgr = True, save_not_show = False):
