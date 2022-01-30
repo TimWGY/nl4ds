@@ -37,6 +37,7 @@ from PIL import Image
 Image.MAX_IMAGE_PIXELS = None
 
 from shapely.geometry import Polygon as shapely_polygon
+from shapely.geometry import Point as shapely_point
 
 os.system('pip install rasterio')
 import rasterio
@@ -1022,7 +1023,7 @@ def stop_at_abrupt_change(contours, sudden_change_ratio = 10):
     prev_cnt_size = cnt_size
   return output_contours
 def hsv2bgr(h,s=1.0,v=1.0):
-  r,g,b = hsv_to_rgb(h,s,v)
+  r,g,b = colorsys.hsv_to_rgb(h,s,v)
   return (b,g,r)
 
 ###### VISUALIZE CONTOURS ######
