@@ -222,7 +222,7 @@ def mark_ms_ocr_result(input_image_filepath, components_df, output_image_filepat
     bbox, ocr_text, confidence, right_side_center = row['bounding_box'], row['text'], row['confidence'], row.get('bbox_right_side_center',None)
     
     # bounding box
-    if all([len(x)==2 for x in bbox]):
+    if all([isinstance(x,list) and len(x)==2 for x in bbox]):
       vertices = bbox
     else:
       vertices = [(bbox[i], bbox[i + 1]) for i in range(0, len(bbox), 2)]
