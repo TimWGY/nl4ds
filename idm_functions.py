@@ -1084,7 +1084,7 @@ def draw_many_contours(img, contours, text_content_list=None, dpi=None, border_w
 
 ###### SELECT WITH CONTOURS ######
 def mask_with_contours(img, contours):
-  img = img.copy()
+  # img = img.copy()
   mask_color = 255 if len(img.shape)==2 else (255,255,255) if len(img.shape)==3 else 255
   contours_mask = cv2.drawContours(np.zeros(img.shape, dtype=np.uint8), contours, -1, mask_color, -1)
   masked_img = cv2.bitwise_and(img, contours_mask)
