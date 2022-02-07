@@ -1,3 +1,9 @@
+import os
+os.system('pip list >> installed_libraries.txt')
+with open('/content/installed_libraries.txt','r') as f:
+  installed_libraries_string = f.read()
+installed_libraries = [line.split()[0] for line in installed_libraries_string.split('\n')[2:] if line!='']
+
 from IPython.core.display import clear_output
 
 clear_output()
@@ -21,7 +27,6 @@ from matplotlib.patches import Polygon as mpb_polygon
 plt.rcParams["font.serif"] = "cmr10" 
 
 import ast
-import os
 import shutil
 from glob import glob
 import gc
@@ -39,54 +44,63 @@ Image.MAX_IMAGE_PIXELS = None
 from shapely.geometry import Polygon as shapely_polygon
 from shapely.geometry import Point as shapely_point
 
-os.system('pip install rasterio')
+if 'rasterio' not in installed_libraries:
+  os.system('pip install rasterio')
 import rasterio
 from rasterio.windows import Window
 from rasterio.transform import Affine
 from rasterio.plot import reshape_as_image
 
-os.system('pip install tqdm')
+if 'tqdm' not in installed_libraries:
+  os.system('pip install tqdm')
 from tqdm import tqdm
+tqdm.pandas()
 
-os.system('pip install pyproj')
+if 'pyproj' not in installed_libraries:
+  os.system('pip install pyproj')
 import pyproj
 from pyproj import Geod
 
-os.system('pip install iteround')
+if 'iteround' not in installed_libraries:
+  os.system('pip install iteround')
 from iteround import saferound
 
-os.system('pip install colorsys')
-import colorsys
+if 'colorsys' not in installed_libraries:
+  os.system('pip install colorsys')
+import 
 
-os.system('pip install sklearn')
+if 'sklearn' not in installed_libraries:
+  os.system('pip install sklearn')
 import sklearn
 from sklearn.cluster import DBSCAN
 
-os.system('pip install scipy')
+if 'scipy' not in installed_libraries:
+  os.system('pip install scipy')
 import scipy
 from scipy.cluster.vq import whiten
 from scipy.cluster.vq import kmeans
 from scipy.cluster.vq import vq
 
-os.system('pip install plotly')
+if 'plotly' not in installed_libraries:
+  os.system('pip install plotly')
 import plotly
 
-os.system('pip install plotly-express')
+if 'plotly-express' not in installed_libraries:
+  os.system('pip install plotly-express')
 import plotly.express as px
 import plotly.graph_objs as go
 
-os.system('pip install python-Levenshtein')
-os.system('pip install thefuzz')
-os.system('pip install networkx')
-os.system('pip install tqdm')
-
+if 'python-Levenshtein' not in installed_libraries:
+  os.system('pip install python-Levenshtein')
+if 'thefuzz' not in installed_libraries:
+  os.system('pip install thefuzz')
+if 'networkx' not in installed_libraries:
+  os.system('pip install networkx')
 from thefuzz import fuzz, process
 import networkx as nx
-from tqdm import tqdm
-tqdm.pandas()
 
-
-os.system('pip install Fiona')
+if 'fiona' not in installed_libraries:
+  os.system('pip install fiona')
 import fiona
 
 clear_output()
