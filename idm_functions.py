@@ -67,7 +67,7 @@ from iteround import saferound
 
 if 'colorsys' not in installed_libraries:
   os.system('pip install colorsys')
-import 
+import colorsys
 
 if 'sklearn' not in installed_libraries:
   os.system('pip install sklearn')
