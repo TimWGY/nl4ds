@@ -189,7 +189,7 @@ def show_map(data, tile_style='bw'):
   return m
 
 def get_gecoded_business_directory_dataset():
-  df = pd.read_csv(data_folder_path +'/'+ 'business_directory_data_partially_geocoded_v20220205.csv')
+  df = pd.read_csv(data_folder_path +'/'+ 'business_directory_data_partially_geocoded_v20220209.csv')
   df['coordinates'] = df['coordinates'].fillna('np.nan').apply(eval)
   return df
 
