@@ -7,11 +7,8 @@ import re
 import pandas as pd
 import numpy as np
 
-playground_data_folder_path = '/content/drive/Shareddrives/Humanities Research Lab - Shanghai/colab_playground/playground_data/'
-
-
 def load_raw_address_of_nyc_chinese_dataset():
-  df = pd.read_excel(playground_data_folder_path + 'Addresses of NYC Chinese.xlsx', sheet_name=0)
+  df = pd.read_excel(data_folder_path +'/'+ 'Addresses of NYC Chinese.xlsx', sheet_name=0)
   df = df[[col for col in df.columns if not 'Unnamed:' in col]].dropna(how='all')
   df = df.applymap(lambda x: np.nan if isinstance(x, str) and x.strip() == '' else x)
   df = df[df['Address'].apply(lambda x: x != x.upper())]
@@ -55,7 +52,6 @@ def load_and_prep_address_of_nyc_chinese_dataset():
 
 
 import ast
-street_segment_df = pd.read_csv(playground_data_folder_path + 'hnyc_street_segment_1910_v20211125.csv', converters={'building_num_range': ast.literal_eval, 'start_end_coordinates': ast.literal_eval})
 
 os.system('pip install python-Levenshtein')
 os.system('pip install thefuzz')
@@ -112,6 +108,19 @@ def get_coordinates_from_details(target_building_num, building_num_range, start_
 
 global street_name_matching_mapping
 street_name_matching_mapping = {}
+
+while True:
+  data_folder_choice = input('NYU or Columbia Data Folder?').lower()
+  if data_folder_choice.startswith('n'):
+    data_folder_path = '/content/drive/Shareddrives/Humanities Research Lab - Shanghai/colab_playground/playground_data'
+    break
+  elif data_folder_choice.startswith('c'):
+    data_folder_path = '/content/drive/MyDrive/HNYC_2022/geocoder/data'
+    break
+  else:
+    pass
+
+street_segment_df = pd.read_csv(data_folder_path +'/'+ 'hnyc_street_segment_1910_v20211125.csv', converters={'building_num_range': ast.literal_eval, 'start_end_coordinates': ast.literal_eval})
 global unique_street_names
 unique_street_names = street_segment_df['street_name'].dropna().unique().tolist()
 
@@ -179,6 +188,10 @@ def show_map(data, tile_style='bw'):
 
   return m
 
+def get_gecoded_business_directory_dataset():
+  df = pd.read_csv(data_folder_path +'/'+ 'business_directory_data_partially_geocoded_v20220205.csv')
+  df['coordinates'] = df['coordinates'].fillna('np.nan').apply(eval)
+  return df
 
 def show_map_for_bus_dir(data, tile_style='bw'):
 
