@@ -1514,6 +1514,43 @@ def latlon_to_xy(latlon_pair, affine_transform_object):
 
 
 
+
+
+#======================================= Image Matching ===========================================#
+
+def point_in_orig_to_point_in_georef(point_in_orig, matching_table):
+  try:
+    matching_table['distance_on_orig'] = matching_table['keypoints0'].apply(lambda tup: np.linalg.norm(np.array(point_in_orig) - np.array(tup)))
+    nearest_four_points_on_orig_and_their_matches = matching_table.sort_values('distance_on_orig')[:4]
+    nearest_four_points_on_orig_and_their_matches = nearest_four_points_on_orig_and_their_matches[~nearest_four_points_on_orig_and_their_matches.index.isin([626])]
+    input_pts = np.array(nearest_four_points_on_orig_and_their_matches['keypoints0'].tolist()).astype(np.float32)
+    output_pts = np.array(nearest_four_points_on_orig_and_their_matches['keypoints1'].tolist()).astype(np.float32)
+    M = cv2.getPerspectiveTransform(input_pts, output_pts)
+    point_in_georef = tuple(np.round(cv2.perspectiveTransform(np.array([[point_in_orig]], dtype=np.float32), M),0).astype(int)[0][0])
+  except:
+    point_in_georef = (-1,-1)
+  return point_in_georef
+
+def get_angle_diff(angle1, angle2):
+  return min(abs(angle1-angle2),360-abs(angle1-angle2))
+def get_average_angle(arr):
+  arr = np.array(arr)
+  return np.round(np.degrees(np.arctan2(np.mean(np.sin(np.radians(arr))),  np.mean(np.cos(np.radians(arr))))),1)
+def rotate_coordinate(p, origin=(0, 0), degrees=0):
+  # Reference: https://stackoverflow.com/a/58781388
+  angle = np.deg2rad(degrees)
+  R = np.array([[np.cos(angle), -np.sin(angle)],
+                [np.sin(angle),  np.cos(angle)]])
+  o = np.atleast_2d(origin)
+  p = np.atleast_2d(p)
+  return np.squeeze((R @ (p.T-o.T) + o.T).T).astype(np.int32)
+
+#==================================================================================================#
+
+
+
+
+
 clear_output()
 print('\nImage data mining (IDM) module is ready. Enjoy exploring!\n')
 
