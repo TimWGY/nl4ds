@@ -151,6 +151,9 @@ def create_mapping_from_df(dataframe, key, value, drop_nan_value = True, drop_em
     temp_df = temp_df.dropna()
   return temp_df.set_index(key)[value].to_dict()
 
+remove_special_characters_and_shrink_whitespace = lambda x: re.sub(r'\s+', ' ', re.sub(r'[^a-z0-9\s]', '', x.lower())).strip() if isinstance(x,str) else ''
+remove_bracket_x_pattern = lambda x: '' if re.sub(r'(\[)?x+(\])?','',x)=='' else x
+
 #==================================================================================================#
 
 
