@@ -966,3 +966,60 @@ def explain(col):
   for _, row in col_info.iterrows():
     print('### '+row['key']+' ###\n\n  ',textwrap.fill(row['value'][:600], 100),'\n')
   print('### '+'documentation url'+' ###\n\n  ', 'https://usa.ipums.org/usa-action/variables/'+col ,'\n')
+
+
+##############################################################################
+# ipums_us_chinese_template: https://colab.research.google.com/drive/1IXbG4jxBDVbv6UjgH5ENcYHeDk1aa5ol?usp=sharing
+
+def top_other_encode(data, field, top_k = 9):
+  top_k_values = set(data[field].value_counts()[:top_k].index.tolist())
+  data[field+'_TOP'] = data[field].apply(lambda x: x if x in top_k_values else 'Other values')
+  return data
+
+def show_breakdown_by_year_graph(data, groupby_column, category_column, weight_column, proportion = False, top_k = 9):
+  cmap_in_hex = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#bcbd22','#17becf','#7f7f7f']
+  tdf = top_other_encode(data[[weight_column, groupby_column, category_column]].copy(), category_column, top_k = top_k)
+  pivot_table = pd.pivot_table(tdf, values=weight_column, index=[groupby_column], columns=[category_column+'_TOP'], aggfunc=np.sum, fill_value = 0)
+  if 'Other values' in pivot_table.columns:
+    pivot_table = pivot_table[[c for c in pivot_table.columns.tolist() if c!='Other values']+['Other values']]
+  if proportion:
+    pivot_table = (pivot_table.T / pivot_table.T.sum(axis=0)).T
+
+  category_to_color_mapping = dict(zip([c for c in pivot_table.columns.tolist() if c!='Other values'], [c for c in cmap_in_hex if c!='#7f7f7f']))
+  category_to_color_mapping.update({'Other values':'#7f7f7f'})
+  pivot_table.plot.bar(stacked=True, color = category_to_color_mapping)
+  plt.legend(bbox_to_anchor=(1.0, 1.0))
+  _ = plt.xticks(rotation = 0)
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+from matplotlib import cm
+## Reference: https://stackoverflow.com/a/26109298
+class MplColorHelper:
+  def __init__(self, cmap_name, start_val, stop_val):
+    self.cmap_name = cmap_name
+    self.cmap = plt.get_cmap(cmap_name)
+    self.norm = mpl.colors.Normalize(vmin=start_val, vmax=stop_val)
+    self.scalarMap = cm.ScalarMappable(norm=self.norm, cmap=self.cmap)
+  def get_rgb(self, val):
+    return [int(v) for v in np.array(self.scalarMap.to_rgba(val)[:3])*255]
+reds_scale = MplColorHelper('Reds', 0, 5)
+
+
+
+#### IPUMS data codebook preparation
+## Download XML from IPUMS USA and Execute the following code in R, then upload all csv files to Colab
+# library('ipumsr')
+# ddi <- read_ipums_ddi("/Users/timsmac/Desktop/usa_00039.xml")
+# for (i in 1:nrow(ddi$var_info)) {
+#     t = ddi$var_info$val_labels[i]
+#     write.table(t , file = paste(c("/Users/timsmac/Desktop/",ddi$var_info$var_name[i],"_code_mapping.csv"),collapse=""), sep=",", row.names=FALSE)
+# }
+
+# code_mapping = {}
+# for p in glob('/content/*.csv'):
+#   field_name = p.split('/')[-1].split('_')[0]
+#   this_field_code_mapping = pd.read_csv(p)
+#   if len(this_field_code_mapping) > 0:
+#     code_mapping[field_name] = this_field_code_mapping.set_index('val')['lbl'].to_dict()
+# pickle.dump(code_mapping, open('/content/drive/Shareddrives/Humanities Research Lab - Shanghai/colab_playground/playground_data/ipums_us_chinese_code_mapping.pkl','wb'))
