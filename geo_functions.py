@@ -181,10 +181,12 @@ def show_map(data, tile_style='bw'):
   map_center = np.array(data['coordinates'].tolist()).mean(axis=0)
   m = folium.Map(location=map_center, tiles=tiles, attr='... contributors [to be updated for public version]', control_scale=True)
 
-  place_type_to_color_mapping = {'Home': 'green', 'Restaurant': 'orangered', 'Non-restaurant Business': 'blue'}
-
+  place_type_to_color_mapping = {'Home': 'green', 'Restaurant': 'orange', 'Non-restaurant Business': 'blue'}
   for _, row in data.iterrows():
-    folium.Circle(row['coordinates'], radius=1, color=place_type_to_color_mapping.get(row['place_type'], 'gold'), tooltip=f"Name: {row['Name FULL']}<br>Address: {row['Address']}<br>Type: {row['place_type']}<br>HBCR: {row['HBCR']}<br>Year: {int(row['YR'])}<br>FID: {int(row['FID'])}").add_to(m)
+    if 'place_type' in data.columns:
+      folium.Circle(row['coordinates'], radius=1, color=place_type_to_color_mapping.get(row['place_type'], 'grey'), tooltip=f"Name: {row['Name FULL']}<br>Address: {row['Address']}<br>Type: {row['place_type']}<br>HBCR: {row['HBCR']}<br>Year: {int(row['YR'])}<br>FID: {int(row['FID'])}").add_to(m)
+    else:
+      folium.Circle(row['coordinates'], radius=1, color='red' if row['CHINESE'] else 'brown', tooltip=f"Name: {row['Name']}<br>Address: {row['Address']}<br>Year: {int(row['YR'])}<br>ID: {row['UUID']}").add_to(m)
 
   return m
 
@@ -193,18 +195,5 @@ def get_gecoded_business_directory_dataset():
   df['coordinates'] = df['coordinates'].fillna('np.nan').apply(eval)
   return df
 
-def show_map_for_bus_dir(data, tile_style='bw'):
-
-  orig_data_length = len(data)
-  data = data.dropna(subset=['coordinates'])
-  print(orig_data_length - len(data), 'out of', orig_data_length, 'records are dropped due to the lack of cooridnates data.\nThese addresses may not be clear or may locate outside Manhattan, which is the scope of the current historical geocoder.\n')
-
-  tiles = 'Stamen Toner' if tile_style == 'bw' else 'https://maps.nyc.gov/xyz/1.0.0/photo/1924/{z}/{x}/{y}.png8' if tile_style == 'aerial' else 'bw'
-
-  map_center = np.array(data['coordinates'].tolist()).mean(axis=0)
-  m = folium.Map(location=map_center, tiles=tiles, attr='... contributors [to be updated for public version]', control_scale=True)
-
-  for _, row in data.iterrows():
-    folium.Circle(row['coordinates'], radius=1, color='orangered', tooltip=f"Name: {row['Name']}<br>Address: {row['Address']}<br>Year: {int(row['YR'])}<br>ID: {row['UUID']}").add_to(m)
-
-  return m
+def show_non_geocoded_part(data):
+  return data[data['coordinates'].isnull()]
