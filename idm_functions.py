@@ -740,7 +740,7 @@ def analyze_color(input_image, transparency_threshold = 50, plot_3d = False, plo
   # Handle large pixel color_df
   if len(color_df)>1e5:
       if use_sample:
-      sample_or_not = (input('Large image detected, would you like to sample the pixels in this image? (Y/N) ')).lower()[0] == 'y'
+        sample_or_not = (input('Large image detected, would you like to sample the pixels in this image? (Y/N) ')).lower()[0] == 'y'
       if sample_or_not:
         print('Sampled 100,000 pixels from the image, note that you can also resize the image before passing it to this function.')
         color_df = color_df.sample(n = int(1e5), random_state = 0)
