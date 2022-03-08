@@ -976,20 +976,41 @@ def top_other_encode(data, field, top_k = 9):
   data[field+'_TOP'] = data[field].apply(lambda x: x if x in top_k_values else 'Other values')
   return data
 
-def show_breakdown_by_year_graph(data, groupby_column, category_column, weight_column, proportion = False, top_k = 9):
-  cmap_in_hex = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#bcbd22','#17becf','#7f7f7f']
-  tdf = top_other_encode(data[[weight_column, groupby_column, category_column]].copy(), category_column, top_k = top_k)
-  pivot_table = pd.pivot_table(tdf, values=weight_column, index=[groupby_column], columns=[category_column+'_TOP'], aggfunc=np.sum, fill_value = 0)
-  if 'Other values' in pivot_table.columns:
-    pivot_table = pivot_table[[c for c in pivot_table.columns.tolist() if c!='Other values']+['Other values']]
-  if proportion:
+def show_breakdown(data, of, by, weight_column = None, drop_missing = False, missing_as_category = True, proportional = False, hide_other = False, top_k = 9, stacked = False, return_stats = False):
+  data = data.copy()
+  if top_k > 9:
+    print('Please choose top_k smaller or equal to 9.')
+    return
+  cmap_in_hex = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#bcbd22','#17becf','#7f7f7f']  
+  if weight_column == None:
+    data['temporary_weight_column'] = 1
+    weight_column = 'temporary_weight_column'
+  if drop_missing:
+    data = data.dropna(subset=[of])
+  if missing_as_category:
+    data[of] = data[of].fillna('Missing')
+  tdf = top_other_encode(data[[weight_column, by, of]].copy(), of, top_k = top_k) 
+  pivot_table = pd.pivot_table(tdf, values=weight_column, index=[by], columns=[of+'_TOP'], aggfunc=np.sum, fill_value = 0)
+  if proportional:
     pivot_table = (pivot_table.T / pivot_table.T.sum(axis=0)).T
+  if 'Missing' in pivot_table.columns:
+    pivot_table = pivot_table[[c for c in pivot_table.columns.tolist() if c!='Missing']+['Missing']]
+  if 'Other values' in pivot_table.columns:
+    if proportional and hide_other and stacked:
+      print('[Warning] If you want to plot proportional stacked bar chart, you have to set hide_other to be False, otherwise the stacked bar will not add up to 1.')
+      hide_other = False
+    pivot_table = pivot_table[[c for c in pivot_table.columns.tolist() if c!='Other values']+([] if hide_other else ['Other values'])]
 
-  category_to_color_mapping = dict(zip([c for c in pivot_table.columns.tolist() if c!='Other values'], [c for c in cmap_in_hex if c!='#7f7f7f']))
+  category_to_color_mapping = dict(zip([c for c in pivot_table.columns.tolist() if c!='Other values'], [c for c in cmap_in_hex[:top_k] if c!='#7f7f7f']))
   category_to_color_mapping.update({'Other values':'#7f7f7f'})
-  pivot_table.plot.bar(stacked=True, color = category_to_color_mapping)
+  pivot_table.plot.bar(stacked=stacked, color = category_to_color_mapping)
   plt.legend(bbox_to_anchor=(1.0, 1.0))
-  _ = plt.xticks(rotation = 0)
+  plt.xticks(rotation = 0)
+  plt.show()
+
+  if return_stats:
+    return pivot_table
+
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
