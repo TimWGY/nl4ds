@@ -279,11 +279,11 @@ def read_dict_from_json(filepath):
 
 ############# QUICK ACCESS OCR #############
 
-def ms_ocr(img_path, mark_image = True, show_numeric = False, fontsize = 10, figsize = (20,20), dpi = 150, clear_plot=False):
+def ms_ocr(img_path, mark_image = True, show_numeric = False, fontsize = 10, figsize = (20,20), dpi = 150, clear_plot=False, wait_interval = 10):
 
   raw_ocr_result_filepath = img_path.split('.')[0] + '_raw_ocr_result.txt'
   if not os.path.exists(raw_ocr_result_filepath):
-    result = get_ms_ocr_result(img_path)
+    result = get_ms_ocr_result(img_path, wait_interval = wait_interval)
     save_dict_to_json(result, raw_ocr_result_filepath)
   else:
     print('Raw OCR result found.')
@@ -1075,19 +1075,22 @@ def draw_many_contours(img, contours, text_content_list=None, dpi=None, border_w
     color = colors[i%n_colors]
     colored_img = cv2.drawContours(colored_img, [cnt], 0, color, border_width)
 
-    M = cv2.moments(cnt)
-    cx = int(M['m10']/M['m00'])
-    cy = int(M['m01']/M['m00'])
-    text_position = (cx, cy)
-    
-    text_content = str(text_content_list[i])
-    font_family = cv2.FONT_HERSHEY_SIMPLEX
-    font_scale = font_scale
-    color = color
-    thickness = 2
-    line_type = cv2.LINE_AA
 
-    colored_img = cv2.putText(colored_img, text_content , text_position, font_family, font_scale, color, thickness, line_type)
+    if font_scale > 0:
+      
+      M = cv2.moments(cnt)
+      cx = int(M['m10']/M['m00'])
+      cy = int(M['m01']/M['m00'])
+      text_position = (cx, cy)
+      
+      text_content = str(text_content_list[i])
+      font_family = cv2.FONT_HERSHEY_SIMPLEX
+      font_scale = font_scale
+      color = color
+      thickness = 2
+      line_type = cv2.LINE_AA
+
+      colored_img = cv2.putText(colored_img, text_content , text_position, font_family, font_scale, color, thickness, line_type)
   
   if save_not_show:
 
@@ -1269,7 +1272,7 @@ def flood_fill(img, seed_pixel, return_mask = False, fill_value = (0,0,0), color
 
 #================================== UTILS FOR GDRIVE FOLDER =======================================#
  
-def move_shallow_folder(from_folder, to_folder, copy = False, exclude_regex = None):
+def move_shallow_folder(from_folder, to_folder, copy = False, exclude_regex = None, wait_interval = 0.1):
 
   from_folder = from_folder.rstrip('/')
   to_folder = to_folder.rstrip('/')
@@ -1297,6 +1300,7 @@ def move_shallow_folder(from_folder, to_folder, copy = False, exclude_regex = No
       shutil.copy(from_p, to_p)
     else:
       shutil.move(from_p, to_p)
+    time.sleep(wait_interval)
 
 #==================================================================================================#
 
