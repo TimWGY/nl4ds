@@ -186,7 +186,7 @@ def show_map(data, tile_style='bw'):
     if 'place_type' in data.columns:
       folium.Circle(row['coordinates'], radius=1, color=place_type_to_color_mapping.get(row['place_type'], 'grey'), tooltip=f"Name: {row['Name FULL']}<br>Address: {row['Address']}<br>Type: {row['place_type']}<br>HBCR: {row['HBCR']}<br>Year: {int(row['YR'])}<br>FID: {int(row['FID'])}").add_to(m)
     else:
-      folium.Circle(row['coordinates'], radius=1, color=('red' if row['CHINESE']=='Yes' else 'beaver'), tooltip=f"Name: {row['Name']}<br>Address: {row['Address']}<br>Year: {int(row['YR'])}<br>ID: {row['UUID']}").add_to(m)
+      folium.Circle(row['coordinates'], radius=1, color=('red' if row['CHINESE']=='Yes' else 'orange'), tooltip=f"Name: {row['Name']}<br>Address: {row['Address']}<br>Year: {int(row['YR'])}<br>ID: {row['UUID']}").add_to(m)
 
   return m
 
