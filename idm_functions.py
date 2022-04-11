@@ -459,7 +459,11 @@ def add_bbox_features_to_table(map_ocr_results_table, ocr_entry_id_start = 1):
   # Add a unique id for each ocr entry (each row in the table), this is unique within the original full image/map.
   map_ocr_results_table['ocr_entry_id'] = range(ocr_entry_id_start, ocr_entry_id_start + len(map_ocr_results_table))
 
-  return map_ocr_results_table[['map_id', 'ocr_entry_id', 'text', 'confidence', 'bounding_box', 'bbox_width', 'bbox_width_diff_prop', 'bbox_height', 'bbox_height_diff_prop', 'bbox_reading_direction',  'bbox_center', 'bbox_left_side_center', 'bbox_right_side_center']]
+  if 'map_id' in map_ocr_results_table.columns:
+    output_columns = ['map_id', 'ocr_entry_id', 'text', 'confidence', 'bounding_box', 'bbox_width', 'bbox_width_diff_prop', 'bbox_height', 'bbox_height_diff_prop', 'bbox_reading_direction',  'bbox_center', 'bbox_left_side_center', 'bbox_right_side_center']
+  else:
+    output_columns = [          'ocr_entry_id', 'text', 'confidence', 'bounding_box', 'bbox_width', 'bbox_width_diff_prop', 'bbox_height', 'bbox_height_diff_prop', 'bbox_reading_direction',  'bbox_center', 'bbox_left_side_center', 'bbox_right_side_center']  
+  return map_ocr_results_table[output_columns]
 
 #==================================================================================================#
 
@@ -864,7 +868,7 @@ def imsave(img, filename):
 def get_w_h_ratio(img):
   return img.shape[1]/img.shape[0]
   
-def imshow(img, width = 9, dpi = 90):
+def imshow(img, width = 9, dpi = 90, title = None):
     
   w_h_ratio = get_w_h_ratio(img)
   plt.figure(figsize=(width,round(width*w_h_ratio,1)), dpi=dpi)
@@ -873,6 +877,8 @@ def imshow(img, width = 9, dpi = 90):
     plt.imshow(img, cmap='gray', vmin=0, vmax=255)
   else:
     plt.imshow(img)
+  if title is not None:
+    plt.title(title)
 
 def save_graph(filename = '', dpi = 150, padding = 0.3, transparent = False, add_title = False, folder = None):
 
