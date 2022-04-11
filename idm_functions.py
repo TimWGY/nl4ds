@@ -446,7 +446,7 @@ def get_bbox_features(bbox):
 
   return width, width_diff_prop, height, height_diff_prop, reading_direction, center, left_side_center, right_side_center
 
-def add_bbox_features_to_table(map_ocr_results_table, ocr_entry_id_start = 1):
+def add_bbox_features_to_table(map_ocr_results_table, ocr_entry_id_start = 1, id_column = 'map_id'):
 
   # Calculate bounding box features and add them as columns
   map_ocr_results_table[['bbox_'+col for col in 'width, width_diff_prop, height, height_diff_prop, reading_direction, center, left_side_center, right_side_center'.split(', ')]] = pd.DataFrame(map_ocr_results_table['bounding_box'].apply(get_bbox_features).tolist(), index = map_ocr_results_table.index)
@@ -459,10 +459,7 @@ def add_bbox_features_to_table(map_ocr_results_table, ocr_entry_id_start = 1):
   # Add a unique id for each ocr entry (each row in the table), this is unique within the original full image/map.
   map_ocr_results_table['ocr_entry_id'] = range(ocr_entry_id_start, ocr_entry_id_start + len(map_ocr_results_table))
 
-  if 'map_id' in map_ocr_results_table.columns:
-    output_columns = ['map_id', 'ocr_entry_id', 'text', 'confidence', 'bounding_box', 'bbox_width', 'bbox_width_diff_prop', 'bbox_height', 'bbox_height_diff_prop', 'bbox_reading_direction',  'bbox_center', 'bbox_left_side_center', 'bbox_right_side_center']
-  else:
-    output_columns = [          'ocr_entry_id', 'text', 'confidence', 'bounding_box', 'bbox_width', 'bbox_width_diff_prop', 'bbox_height', 'bbox_height_diff_prop', 'bbox_reading_direction',  'bbox_center', 'bbox_left_side_center', 'bbox_right_side_center']  
+  output_columns = [id_column, 'ocr_entry_id', 'text', 'confidence', 'bounding_box', 'bbox_width', 'bbox_width_diff_prop', 'bbox_height', 'bbox_height_diff_prop', 'bbox_reading_direction',  'bbox_center', 'bbox_left_side_center', 'bbox_right_side_center']  
   return map_ocr_results_table[output_columns]
 
 #==================================================================================================#
