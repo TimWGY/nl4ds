@@ -865,10 +865,13 @@ def imsave(img, filename):
 def get_w_h_ratio(img):
   return img.shape[1]/img.shape[0]
   
-def imshow(img, width = 9, dpi = 90, title = None):
+def imshow(img, width = 9, height = None, dpi = 90, title = None):
     
   w_h_ratio = get_w_h_ratio(img)
-  plt.figure(figsize=(width,round(width*w_h_ratio,1)), dpi=dpi)
+  if height is None:
+    plt.figure(figsize=(width,round(width*w_h_ratio,1)), dpi=dpi)
+  else:
+    plt.figure(figsize=(round(height*w_h_ratio,1),height), dpi=dpi)
   plt.grid(False)
   if len(img.shape)==2:
     plt.imshow(img, cmap='gray', vmin=0, vmax=255)
@@ -1122,7 +1125,7 @@ def recover_contour_from_string(contour_string):
   return np.array(list_of_points, dtype=np.int32)
 
 ###### FIND LINES ######
-def find_lines(img, canny_lower_thresh = 50, canny_upper_thresh = 200, rho = 1, theta = np.pi / 180, threshold = 25, min_line_length = 100, max_line_gap = 20, show = True, return_lines = False, return_layer = True):
+def find_lines(img, canny_lower_thresh = 50, canny_upper_thresh = 200, rho = 1, theta = np.pi / 180, threshold = 25, min_line_length = 100, max_line_gap = 20, show = True, return_lines = False, return_layer = True, dpi = 150, linewidth = 1):
   # rho              # distance resolution in pixels of the Hough grid
   # theta            # angular resolution in radians of the Hough grid
   # threshold        # minimum number of votes (intersections in Hough grid cell)
@@ -1141,9 +1144,9 @@ def find_lines(img, canny_lower_thresh = 50, canny_upper_thresh = 200, rho = 1, 
     lines_layer_rgb = np.zeros((*img.shape, 3), dtype = np.uint8)
     for line in lines:
       for x1,y1,x2,y2 in line:
-        cv2.line(lines_layer_rgb,(x1,y1),(x2,y2),(255,0,0),1)
+        cv2.line(lines_layer_rgb,(x1,y1),(x2,y2),(255,0,0),linewidth)
     overlayed = cv2.addWeighted(grey_to_rgb(img), 0.8, lines_layer_rgb, 1, 0)
-    imshow(overlayed)
+    imshow(overlayed, dpi = dpi)
 
   if return_lines:
     return lines
