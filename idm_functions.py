@@ -718,7 +718,7 @@ def combine_relative_tables(relative_table_filepath_list, rotated = False):
 
 #======================================== COLOR ANALYZER ==========================================#
 
-def analyze_color(input_image, transparency_threshold = 50, plot_3d = False, plot_bar = True, n_cluster = None, max_cluster = 10, ignore_pure_black = True, use_sample = True, return_colors = True):
+def analyze_color(input_image, transparency_threshold = 50, plot_3d = False, plot_bar = True, n_cluster = None, max_cluster = 10, ignore_pure_black = True, use_sample = True, confirm_sample = False, return_colors = True, return_hsv = False):
 
   # Copy to prevent modification (useful but mechanism needs clarification)
   input_image = input_image.copy()
@@ -741,7 +741,10 @@ def analyze_color(input_image, transparency_threshold = 50, plot_3d = False, plo
   # Handle large pixel color_df
   if len(color_df)>1e5:
       if use_sample:
-        sample_or_not = (input('Large image detected, would you like to sample the pixels in this image? (Y/N) ')).lower()[0] == 'y'
+        if confirm_sample:
+          sample_or_not = True
+        else:
+          sample_or_not = (input('Large image detected, would you like to sample the pixels in this image? (Y/N) ')).lower()[0] == 'y'
       if sample_or_not:
         print('Sampled 100,000 pixels from the image, note that you can also resize the image before passing it to this function.')
         color_df = color_df.sample(n = int(1e5), random_state = 0)
@@ -844,11 +847,21 @@ def analyze_color(input_image, transparency_threshold = 50, plot_3d = False, plo
     plt.ylabel('Average Distortion')
     print()
 
+
   if return_colors:
+
+    colors_list = [(cluster_centers*reverse_whiten_array).astype(np.uint8) for cluster_centers in cluster_centers_list]
+    if return_hsv: 
+      colors_list = [ [tuple(np.round(colorsys.rgb_to_hsv(* color),2)) for color in cluster] for cluster in colors_list]
+  
     if n_cluster != None:
-      return (cluster_centers_list[0]*reverse_whiten_array).astype(np.uint8)
+      return colors_list[0]
     else:
-      return [(cluster_centers*reverse_whiten_array).astype(np.uint8) for cluster_centers in cluster_centers_list]
+      return colors_list
+
+def check_hsv_for_criteria(hsv_code, h_range, s_range, v_range):
+  h, s, v = hsv_code
+  return (h_range[0] <= h)&(h <= h_range[1])   &   (s_range[0] <= s)&(s <= s_range[1])   &   (v_range[0] <= v)&(v <= v_range[1])
 
 #==================================================================================================#
 
