@@ -863,6 +863,11 @@ def check_hsv_for_criteria(hsv_code, h_range, s_range, v_range):
   h, s, v = hsv_code
   return (h_range[0] <= h)&(h <= h_range[1])   &   (s_range[0] <= s)&(s <= s_range[1])   &   (v_range[0] <= v)&(v <= v_range[1])
 
+def check_ocr_crop_background_color(img, bbox_contour, h_range, s_range, v_range):
+  ocr_crop = mask_with_contours(img, [bbox_contour])
+  primary_color, secondary_color = analyze_color(ocr_crop, n_cluster=2, plot_bar=False, return_hsv=True)
+  return check_hsv_for_criteria(primary_color, h_range, s_range, v_range)
+
 #==================================================================================================#
 
 
