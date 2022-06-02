@@ -73,6 +73,7 @@ if 'sklearn' not in installed_libraries:
   os.system('pip install sklearn')
 import sklearn
 from sklearn.cluster import DBSCAN
+from sklearn.linear_model import LinearRegression
 
 if 'scipy' not in installed_libraries:
   os.system('pip install scipy')
@@ -1143,39 +1144,85 @@ def recover_contour_from_string(contour_string):
   return np.array(list_of_points, dtype=np.int32)
 
 ###### FIND LINES ######
-def find_lines(img, canny_lower_thresh = 50, canny_upper_thresh = 200, rho = 1, theta = np.pi / 180, threshold = 25, min_line_length = 100, max_line_gap = 20, show = True, return_lines = False, return_layer = True, dpi = 150, linewidth = 1):
+
+def auto_edgify(img, verbose = False):
+  # Reference: https://stackoverflow.com/a/42037449
+  if len(img.shape) == 3:
+    grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+  elif len(img.shape) == 2:
+    grey = img.copy()
+  else:
+    raise
+  v = np.median(grey.flatten()[grey.flatten() != 0])  
+  lower_thresh = int(max(0, (1.0 - 0.33) * v))
+  upper_thresh = int(min(255, (1.0 + 0.33) * v))
+  if verbose:
+    print('lower_thresh:', lower_thresh, '   upper_thresh:', upper_thresh)
+  edges = cv2.Canny(grey, lower_thresh, upper_thresh)
+  return edges
+
+def get_cc_from_df(df):
+  G = nx.Graph()
+  col_1, col_2 = df.columns
+  for _, row in df[[col_1, col_2]].iterrows():
+    G.add_edge(row[col_1], row[col_2])
+  groups = [list(group) for group in list(nx.connected_components(G))]
+  return groups
+
+def get_projected_point_on_ab_line(a, b, pt):
+  pt_x, pt_y = pt
+  b_prime = pt_y + 1/a * pt_x
+  ppt_x = (b_prime - b)/(a + 1/a)
+  ppt_y = a * ppt_x + b
+  ppt = (round(ppt_x), round(ppt_y))
+  return ppt
+
+def get_projected_point_on_p1p2_line(p1, p2, p3, must_on_segment = False):
+  ## Reference: https://stackoverflow.com/a/61343727
+  l2 = np.sum((p1-p2)**2)
+  if l2 == 0:
+    raise '[Error] p1 and p2 are the same points'
+  t = np.sum((p3 - p1) * (p2 - p1)) / l2 # on line extention connecting p1 and p2 is okay
+  if must_on_segment:
+    if t > 1 or t < 0:
+      print('p3 does not project onto p1-p2 line segment')
+    t = max(0, min(1, np.sum((p3 - p1) * (p2 - p1)) / l2)) # on line segment between p1 and p2 or closest point of the line segment
+  projection = p1 + t * (p2 - p1)
+  return projection
+
+def find_lines(img, rho = 1, theta = np.pi / 180, threshold = 25, min_line_length = 100, max_line_gap = 20, return_what = 'overlay_layer'):
   # rho              # distance resolution in pixels of the Hough grid
   # theta            # angular resolution in radians of the Hough grid
   # threshold        # minimum number of votes (intersections in Hough grid cell)
   # min_line_length  # minimum number of pixels making up a line
   # max_line_gap     # maximum gap in pixels between connectable line segments
 
-  img = img.copy()
-
-  edges = cv2.Canny(img,canny_lower_thresh,canny_upper_thresh)
-
   # `lines` contain endpoints of detected line segments
-  lines = cv2.HoughLinesP(edges, rho, theta, threshold, np.array([]), min_line_length, max_line_gap)
+  lines = cv2.HoughLinesP(img, rho, theta, threshold, np.array([]), min_line_length, max_line_gap)
 
-  if show:
+  if len(lines) == 0:
+    return None
+
+  if return_what == 'overlay_layer':
     # draw lines on a RGB layer
     lines_layer_rgb = np.zeros((*img.shape, 3), dtype = np.uint8)
     for line in lines:
       for x1,y1,x2,y2 in line:
-        cv2.line(lines_layer_rgb,(x1,y1),(x2,y2),(255,0,0),linewidth)
+        cv2.line(lines_layer_rgb,(x1,y1),(x2,y2),(255,0,0),1)
     overlayed = cv2.addWeighted(grey_to_rgb(img), 0.8, lines_layer_rgb, 1, 0)
-    imshow(overlayed, dpi = dpi)
+    return overlayed
 
-  if return_lines:
-    return lines
-
-  if return_layer:
+  if return_what == 'lines_layer':
     # draw lines on a binary layer
     lines_layer = np.zeros(img.shape, dtype = np.uint8)
     for line in lines:
       for x1,y1,x2,y2 in line:
         cv2.line(lines_layer,(x1,y1),(x2,y2),255,1)
     return lines_layer
+  
+  if return_what == 'lines':
+    return lines
+
 
 #==================================================================================================#
 
@@ -1561,6 +1608,13 @@ def point_in_orig_to_point_in_georef(point_in_orig, matching_table):
     point_in_georef = tuple(np.round(cv2.perspectiveTransform(np.array([[point_in_orig]], dtype=np.float32), M),0).astype(int)[0][0])
   except:
     point_in_georef = (-1,-1)
+  return point_in_georef
+
+def get_matching_point_in_georef(point_in_orig, anchor_points):
+  input_pts = np.array(anchor_points[:4], dtype=np.float32)
+  output_pts = np.array(anchor_points[4:], dtype=np.float32)
+  M = cv2.getPerspectiveTransform(input_pts, output_pts)
+  point_in_georef = tuple(np.round(cv2.perspectiveTransform(np.array([[point_in_orig]], dtype=np.float32), M),0).astype(int)[0][0])
   return point_in_georef
 
 def get_angle_diff(angle1, angle2):
