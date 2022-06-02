@@ -249,7 +249,7 @@ def mark_ms_ocr_result(input_image_filepath, components_df, output_image_filepat
     ax.axes.add_patch(polygon_patch)
     
     # text
-    plt.text(vertices[1][0], vertices[1][1], ocr_text, fontsize=fontsize, color='r', va="top")
+    plt.text(vertices[1][0], vertices[1][1], ocr_text.rstrip('$'), fontsize=fontsize, color='r', va="top")
 
     if right_side_center != None:
       # right side center dot
