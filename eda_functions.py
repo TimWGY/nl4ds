@@ -22,6 +22,8 @@ plt.style.use('seaborn')
 import pytz
 from datetime import datetime
 
+import plotly.express as px
+
 # import statsmodels.api as sm
 # import patsy
 # import sklearn
@@ -1044,3 +1046,66 @@ reds_scale = MplColorHelper('Reds', 0, 5)
 #   if len(this_field_code_mapping) > 0:
 #     code_mapping[field_name] = this_field_code_mapping.set_index('val')['lbl'].to_dict()
 # pickle.dump(code_mapping, open('/content/drive/Shareddrives/Humanities Research Lab - Shanghai/colab_playground/playground_data/ipums_us_chinese_code_mapping.pkl','wb'))
+
+
+global SAMPLE_CACHE
+SAMPLE_CACHE = {}
+
+def name_of_variable(obj, namespace):
+    return [name for name in namespace if namespace[name] is obj]
+
+def show_boxplot(data, 
+             of = None, 
+             group_by = None, 
+             color_by = None,
+             plot_outliers = True, 
+             show_notch = False,
+             orientation = 'automatic',
+             group_order = None,
+             sample_size = 100000,
+             drop_missing_before_sampling = True,
+             ):
+    
+    sample_marker = name_of_variable(data, globals())[-1]+'__'+str(sample_size)+'__'+('drop_missing' if drop_missing_before_sampling else 'with_missing')
+
+    if sample_marker in SAMPLE_CACHE.keys():
+        sampled_data = SAMPLE_CACHE[sample_marker]
+        print('Sample size:',len(sampled_data),'entries.')
+    else:
+        dropped_missing_count = data[of].isnull().sum()
+        if len(data) <= sample_size:
+            sampled_data = data
+            print('Input data size:',len(data),'entries.')
+        else:
+            if dropped_missing_count>0:
+                if drop_missing_before_sampling:
+                    print(dropped_missing_count,'missing entries dropped before sampling, which is',round(dropped_missing_count/len(data),2),'of the input data.')
+                    sampled_data = data.dropna(subset=[of]).sample(n=min(data[of].notnull().sum(),sample_size),random_state=0)
+                else:
+                    print('[Warning] Missing entries are present but not dropped.')
+                    sampled_data = data.sample(n=sample_size,random_state=0)
+            else:
+                sampled_data = data.sample(n=sample_size,random_state=0)
+            actual_sample_size = len(sampled_data)
+            print('Input data size:',len(data),'random down-sampling to',actual_sample_size,'entries.')
+
+        SAMPLE_CACHE[sample_marker] = sampled_data
+
+    orientation = None if orientation=='automatic' else 'h' if orientation=='horizontal' else 'v' if orientation=='vertical' else None
+
+    if group_by is None:
+      group_order = None
+    if group_order is None:
+        category_orders = None 
+    elif isinstance(group_order, dict):
+        category_orders = group_order
+    elif isinstance(group_order, str):
+        if re.match(r'.*\b in \b.*',group_order):
+            order, stat = group_order.split(' in ')
+            group_order = sampled_data.groupby(group_by).agg({of:stat}).sort_values(by=of,ascending=(order=='ascending')).index.tolist()
+        elif '|' in group_order:
+            group_order = [x.strip() for x in group_order.split('|')]
+        category_orders = {group_by:group_order}
+
+    fig = px.box(sampled_data, x = group_by, y = of, color = color_by, points='outliers' if plot_outliers else False, category_orders = category_orders, orientation = orientation, notched = show_notch)
+    return fig
