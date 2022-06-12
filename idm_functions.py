@@ -1613,25 +1613,12 @@ def raster_geocode(point, affine_matrix, reverse = False, rounding = 6):
 
 #======================================= Image Matching ===========================================#
 
-def point_in_orig_to_point_in_georef(point_in_orig, matching_table):
-  try:
-    matching_table['distance_on_orig'] = matching_table['keypoints0'].apply(lambda tup: np.linalg.norm(np.array(point_in_orig) - np.array(tup)))
-    nearest_four_points_on_orig_and_their_matches = matching_table.sort_values('distance_on_orig')[:4]
-    nearest_four_points_on_orig_and_their_matches = nearest_four_points_on_orig_and_their_matches[~nearest_four_points_on_orig_and_their_matches.index.isin([626])]
-    input_pts = np.array(nearest_four_points_on_orig_and_their_matches['keypoints0'].tolist()).astype(np.float32)
-    output_pts = np.array(nearest_four_points_on_orig_and_their_matches['keypoints1'].tolist()).astype(np.float32)
-    M = cv2.getPerspectiveTransform(input_pts, output_pts)
-    point_in_georef = tuple(np.round(cv2.perspectiveTransform(np.array([[point_in_orig]], dtype=np.float32), M),0).astype(int)[0][0])
-  except:
-    point_in_georef = (-1,-1)
-  return point_in_georef
-
-def get_matching_point_in_georef(point_in_orig, anchor_points):
-  input_pts = np.array(anchor_points[:4], dtype=np.float32)
-  output_pts = np.array(anchor_points[4:], dtype=np.float32)
-  M = cv2.getPerspectiveTransform(input_pts, output_pts)
-  point_in_georef = tuple(np.round(cv2.perspectiveTransform(np.array([[point_in_orig]], dtype=np.float32), M),0).astype(int)[0][0])
-  return point_in_georef
+def get_matching_point(input_point, anchor_points):
+  input_ref_pts = np.array(anchor_points[:4], dtype=np.float32)
+  output_ref_pts = np.array(anchor_points[4:], dtype=np.float32)
+  M = cv2.getPerspectiveTransform(input_ref_pts, output_ref_pts)
+  output_point = tuple(np.round(cv2.perspectiveTransform(np.array([[input_point]], dtype=np.float32), M),0).astype(int)[0][0])
+  return output_point
 
 def get_angle_diff(angle1, angle2):
   return min(abs(angle1-angle2),360-abs(angle1-angle2))
