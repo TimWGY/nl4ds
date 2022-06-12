@@ -1578,14 +1578,21 @@ def create_shapefile_from_df(filepath, dataframe, properties_columns, geometry_c
 
 #========================================= Geospatial =============================================#
 
-def latlon_to_xy(latlon_pair, affine_transform_object):
-  transform_string = repr(affine_transform_object)
-  transform_string = re.findall(r'\((.*?)\)',transform_string.replace('\n',''))[0]
-  num_string_list = re.split(r'\,\s+',transform_string)
-  transform_matrix = np.array([eval(x) for x in num_string_list]+[0,0,1]).reshape((3,3))
-  product_vector = np.array([latlon_pair[1], latlon_pair[0], 1])
-  xy = np.linalg.solve(transform_matrix, product_vector)[:2]
-  return xy
+# def latlon_to_xy(latlon_pair, affine_transform_object):
+#   transform_string = repr(affine_transform_object)
+#   transform_string = re.findall(r'\((.*?)\)',transform_string.replace('\n',''))[0]
+#   num_string_list = re.split(r'\,\s+',transform_string)
+#   transform_matrix = np.array([eval(x) for x in num_string_list]+[0,0,1]).reshape((3,3))
+#   product_vector = np.array([latlon_pair[1], latlon_pair[0], 1])
+#   xy = np.linalg.solve(transform_matrix, product_vector)[:2]
+#   return xy
+
+def raster_geocode(point, affine_matrix, reverse = False, rounding = 6):
+    if reverse:
+        affine_matrix = ~affine_matrix
+        return tuple(np.round(affine_matrix * point,0).astype(int))
+    else:
+        return np.round(affine_matrix * point, rounding)
 
 #==================================================================================================#
 
