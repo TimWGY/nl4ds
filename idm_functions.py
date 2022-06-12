@@ -1304,6 +1304,15 @@ def find_area_of_color(img, hsv_cde, radius, alpha = 0.5, dpi = 150, overlay = T
   if return_mask:
     return mask
 
+def calculate_contour_average_brightness(input_img, cnt):
+    x_min, y_min = cnt.min(axis=0)[0].astype(int)
+    x_max, y_max = cnt.max(axis=0)[0].astype(int)
+    local_cnt = cnt - np.array([[x_min, y_min]])
+    local_img = input_img[y_min:y_max,x_min:x_max]
+    cnt_img = mask_with_contours(local_img, [local_cnt])
+    average_brightness = round( cnt_img.mean() * ((x_max - x_min)*(y_max - y_min)) / get_contour_area_size(local_cnt), 1)
+    return average_brightness
+
 def flood_fill(img, seed_pixel, return_mask = False, fill_value = (0,0,0), color_variation = 5, neighbor = 4):
 
   if isinstance( seed_pixel, list ):
