@@ -1661,6 +1661,9 @@ def add_reverse_geocode_column(data, coordinates_column, affine_transform_column
     data[new_column] = data[[coordinates_column, affine_transform_column]].apply(lambda row: [raster_geocode(pt, row[affine_transform_column], reverse=True) for pt in row[coordinates_column]], axis=1)
     return data
 
-def draw_poly(input_img, points, close = False, color = (255,0,0), thickness = 5):
-    output_img = cv2.polylines(input_img, [np.array(points)], isClosed=close, color=color, thickness=thickness)
+def draw_poly(input_img, points, close = False, color = (255,0,0), thickness = 5, fill=False):
+    if fill:
+      output_img = cv2.fillPoly(input_img, [np.array(points)], color=color)
+    else:
+      output_img = cv2.polylines(input_img, [np.array(points)], isClosed=close, color=color, thickness=thickness)
     return output_img
