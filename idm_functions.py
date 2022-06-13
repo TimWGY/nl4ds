@@ -1234,36 +1234,28 @@ def find_lines(img, rho = 1, theta = np.pi / 180, threshold = 25, min_line_lengt
 #=========================== HIGH LEVEL COLOR BASED FEATURE EXTRACTOR =============================#
 
 ###### UTILS ######
+def calculate_contour_average_brightness(input_img, cnt):
+    x_min, y_min = cnt.min(axis=0)[0].astype(int)
+    x_max, y_max = cnt.max(axis=0)[0].astype(int)
+    local_cnt = cnt - np.array([[x_min, y_min]])
+    local_img = input_img[y_min:y_max,x_min:x_max]
+    cnt_img = mask_with_contours(local_img, [local_cnt])
+    average_brightness = round( cnt_img.mean() * ((x_max - x_min)*(y_max - y_min)) / get_contour_area_size(local_cnt), 1)
+    return average_brightness
+
+
 def random_sample_position_of_certain_value(ndarray, value, format = 'xy'):
   yx = np.unravel_index( np.random.choice(np.where(ndarray.flatten() == value)[0]), ndarray.shape )
   if format == 'xy':
     return tuple(reversed(yx))
   elif format == 'yx':
     return yx
+
 def get_vicinity(img,pixel_pos,radius): # pixel_pos in (x,y) format
   x, y = pixel_pos
   vicinity = img[max(0,y-radius):min(y+radius+1,img.shape[0]), max(0,x-radius):min(x+radius+1,img.shape[1])].copy()
   return vicinity
-def test_moving_point(seed_pixel_pool, contour, potential_seed, move_point):
-  dist_to_contour = cv2.pointPolygonTest(contour, potential_seed, measureDist=True)
-  seed_vicinity = get_vicinity(seed_pixel_pool, potential_seed, radius = 2)
-  seed_vicinity_not_all_bright = invert_binary(seed_vicinity).sum() > 0
-  # initialize prev_dist_to_contour with a large value
-  prev_dist_to_contour = max(seed_pixel_pool.shape)
-  while dist_to_contour <= 0 or seed_vicinity_not_all_bright:
-    # moving point
-    potential_seed = move_point(*potential_seed)
-    # get dist to contour and check vicinity all bright or not
-    dist_to_contour = cv2.pointPolygonTest(contour, potential_seed, measureDist=True)
-    seed_vicinity = get_vicinity(seed_pixel_pool, potential_seed, radius = 2)
-    seed_vicinity_not_all_bright = invert_binary(seed_vicinity).sum() > 0
-    # check if going in the wrong direction outside the contour
-    if dist_to_contour <= 0 and abs(dist_to_contour) > abs(prev_dist_to_contour):
-      return None
-    # save current dist as prev for comparison in the next iteration
-    prev_dist_to_contour = dist_to_contour
-  # exiting whilte looping meaning seed meet criteria
-  return potential_seed
+
 def create_range_around(hsv_code, radius = (3,10,10)):
   lower_bound, upper_bound = [], []
   for i in range(len(hsv_code)):
@@ -1303,15 +1295,6 @@ def find_area_of_color(img, hsv_cde, radius, alpha = 0.5, dpi = 150, overlay = T
       imshow(cropped, dpi = dpi)
   if return_mask:
     return mask
-
-def calculate_contour_average_brightness(input_img, cnt):
-    x_min, y_min = cnt.min(axis=0)[0].astype(int)
-    x_max, y_max = cnt.max(axis=0)[0].astype(int)
-    local_cnt = cnt - np.array([[x_min, y_min]])
-    local_img = input_img[y_min:y_max,x_min:x_max]
-    cnt_img = mask_with_contours(local_img, [local_cnt])
-    average_brightness = round( cnt_img.mean() * ((x_max - x_min)*(y_max - y_min)) / get_contour_area_size(local_cnt), 1)
-    return average_brightness
 
 def flood_fill(img, seed_pixel, return_mask = False, fill_value = (0,0,0), color_variation = 5, neighbor = 4):
 
@@ -1654,3 +1637,30 @@ print('\nImage data mining (IDM) module is ready. Enjoy exploring!\n')
 #==================================================================================================#
 
 
+def explode_geometry(gdf, geom_colum = 'geometry', id_column = None, drop_duplicates = False):
+    gdf = gdf.explode(geom_colum, index_parts = False).reset_index(drop=True)
+    if drop_duplicates:
+        if id_column is None:
+            raise '[Error] Please specify id_column parameter to use drop duplicates functionality.'
+        gdf[geom_colum+'__area_size'] = gdf[geom_colum].area
+        gdf = gdf.sort_values(geom_colum+'__area_size', ascending=False)
+        gdf = gdf.drop_duplicates(subset=[id_column], keep='first')
+        gdf = gdf.drop([geom_colum+'__area_size'], axis=1)
+    return gdf
+
+
+def add_coordinates_column(data, geometry_column = 'geometry', new_column = None):
+    if new_column is None:
+        new_column = geometry_column+'__coordinates'
+    data[new_column] = data[geometry_column].apply(lambda x: np.round(np.array(x.exterior.coords.xy).T,6))
+    return data
+
+def add_reverse_geocode_column(data, coordinates_column, affine_transform_column = 'affine_transform', new_column = None):
+    if new_column is None:
+        new_column = coordinates_column+'__on_canvas'
+    data[new_column] = data[[coordinates_column, affine_transform_column]].apply(lambda row: [raster_geocode(pt, row[affine_transform_column], reverse=True) for pt in row[coordinates_column]], axis=1)
+    return data
+
+def draw_poly(input_img, points, close = False, color = (255,0,0), thickness = 5):
+    output_img = cv2.polylines(input_img, [np.array(points)], isClosed=close, color=color, thickness=thickness)
+    return output_img
