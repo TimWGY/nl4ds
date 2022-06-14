@@ -1674,7 +1674,7 @@ def get_today_as_string():
 
 def get_xy_range_without_black_border(img):
 
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if len(geo_img.shape) == 3 else img
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if len(img.shape) == 3 else img
     
     col_positive_positions = np.where( img.mean(axis=1) > 0 )[0]
     row_positive_positions = np.where( img.mean(axis=0) > 0 )[0]
