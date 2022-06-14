@@ -1703,3 +1703,43 @@ def crop_and_downscale(img, downscale_ratio, x_start = None, x_end = None, y_sta
 
 def distances_to_point(data, field, point):
   return data[field].apply(lambda x: np.linalg.norm(np.array(x)-np.array(point)))
+
+
+
+def get_kernel(size):
+    return cv2.getStructuringElement(cv2.MORPH_RECT,(size,size))
+
+
+def move_point(pt, direction, step=1):
+    x,y = pt
+    return (x-step,y) if direction == 'left' else (x+step,y) if direction == 'right' else (x,y-step) if direction == 'up' else (x,y+step) if direction == 'down' else (x,y)
+
+def search_seed_point_in_one_direction(seed_pixel_pool, contour, potential_seed, move_direction, move_step = 1, vicinity_radius = 2):
+  
+    # evaluate the distance from seed point to the contour that we want to capture by floodfilling from the seed, 
+    # and whether the vicinity of the seed contains dark color (color of shape border) that will influence a floodfill operation
+    dist_to_contour = cv2.pointPolygonTest(contour, potential_seed, measureDist=True)
+    seed_vicinity_contain_dark_color = invert_binary(get_vicinity(seed_pixel_pool, potential_seed, radius = vicinity_radius)).sum() > 0
+
+    # initialize prev_dist_to_contour with a large value
+    prev_dist_to_contour = max(seed_pixel_pool.shape)+1
+
+    # check if seed point is outside the contour or if the vicinity of the seed contains dark color that influences floodfill
+    while dist_to_contour <= 0 or seed_vicinity_contain_dark_color:
+
+        potential_seed = move_point(potential_seed, direction = move_direction, step = move_step)
+
+        # re-evaluate with the new seed point position
+        dist_to_contour = cv2.pointPolygonTest(contour, potential_seed, measureDist=True)
+        seed_vicinity_contain_dark_color = invert_binary(get_vicinity(seed_pixel_pool, potential_seed, radius = vicinity_radius)).sum() > 0
+
+        # check if seed point is outside the contour and moving in the wrong direction (i.e. movinig away from the contour)
+        # if so, return None to indicate this is a bad direction to search for seed
+        if dist_to_contour <= 0 and abs(dist_to_contour) > abs(prev_dist_to_contour):
+            return None
+
+        # save current dist as prev for comparison in the next iteration
+        prev_dist_to_contour = dist_to_contour
+
+    # exiting while looping meaning seed point meet criteria
+    return potential_seed
