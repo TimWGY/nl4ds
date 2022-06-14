@@ -1667,3 +1667,39 @@ def draw_poly(input_img, points, close = False, color = (255,0,0), thickness = 5
     else:
       output_img = cv2.polylines(input_img, [np.array(points)], isClosed=close, color=color, thickness=thickness)
     return output_img
+
+
+def get_today_as_string():
+    return str(datetime.now().date()).replace('-','')
+
+def get_xy_range_without_black_border(img):
+
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if len(geo_img.shape) == 3 else img
+    
+    col_positive_positions = np.where( img.mean(axis=1) > 0 )[0]
+    row_positive_positions = np.where( img.mean(axis=0) > 0 )[0]
+    y_start, y_end = col_positive_positions.min(), col_positive_positions.max()
+    x_start, x_end = row_positive_positions.min(), row_positive_positions.max()
+
+    return (x_start, x_end, y_start, y_end)
+
+def crop_and_downscale(img, downscale_ratio, x_start = None, x_end = None, y_start = None, y_end = None):
+
+  x_start = 0 if x_start is None else x_start
+  y_start = 0 if y_start is None else y_start
+  x_end = img.shape[1] if x_end is None else x_end
+  y_end = img.shape[0] if y_end is None else y_end
+
+  x_start_r = int(np.ceil(x_start/downscale_ratio)*downscale_ratio)
+  y_start_r = int(np.ceil(y_start/downscale_ratio)*downscale_ratio)
+  x_end_r = int(np.floor(x_end/downscale_ratio)*downscale_ratio)
+  y_end_r = int(np.floor(y_end/downscale_ratio)*downscale_ratio)
+
+  cropped = img[y_start_r:y_end_r, x_start_r:x_end_r,:]
+  target_size = (cropped.shape[1]//downscale_ratio, cropped.shape[0]//downscale_ratio) 
+  resized = cv2.resize(cropped, target_size, interpolation = cv2.INTER_AREA) # INTER_AREA: "resampling using pixel area relation. It may be a preferred method for image decimation, as it gives moire’-free results" according to OpenCV doc
+
+  return resized, x_start_r, x_end_r, y_start_r, y_end_r
+
+def distances_to_point(data, field, point):
+  return data[field].apply(lambda x: np.linalg.norm(np.array(x)-np.array(point)))
