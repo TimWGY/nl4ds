@@ -752,7 +752,8 @@ def analyze_color(input_image, transparency_threshold = 50, plot_3d = False, plo
         else:
           sample_or_not = (input('Large image detected, would you like to sample the pixels in this image? (Y/N) ')).lower()[0] == 'y'
       if sample_or_not:
-        print('Sampled 100,000 pixels from the image, note that you can also resize the image before passing it to this function.')
+        if not confirm_sample:
+          print('Sampled 100,000 pixels from the image, note that you can also resize the image before passing it to this function.')
         color_df = color_df.sample(n = int(1e5), random_state = 0)
       else:
         print('Not sampling performed, but note that rendering 3D plot for the pixels may crash your session and K-means clustering will be slow.')
@@ -765,7 +766,6 @@ def analyze_color(input_image, transparency_threshold = 50, plot_3d = False, plo
   # Doc: https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.vq.whiten.html
   for color in list('rgb'):
     color_df['scaled_'+color] = whiten(color_df[color])
-
 
   ## 3D scatter plot showing color groups
   if plot_3d:
