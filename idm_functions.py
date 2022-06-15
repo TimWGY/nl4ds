@@ -43,6 +43,7 @@ Image.MAX_IMAGE_PIXELS = None
 
 from shapely.geometry import Polygon as shapely_polygon
 from shapely.geometry import Point as shapely_point
+from shapely.validation import make_valid as shapely_make_valid
 
 if 'rasterio' not in installed_libraries:
   os.system('pip install rasterio')
@@ -103,6 +104,9 @@ import networkx as nx
 if 'fiona' not in installed_libraries:
   os.system('pip install fiona')
 import fiona
+
+import warnings
+warnings.filterwarnings('ignore', message='.*initial implementation of Parquet.*')
 
 clear_output()
 
@@ -884,13 +888,15 @@ def imsave(img, filename):
 def get_w_h_ratio(img):
   return img.shape[1]/img.shape[0]
   
-def imshow(img, width = 9, height = None, dpi = 90, title = None):
+def imshow(img, width = 9, height = None, dpi = 90, title = None, no_axis = False):
     
   w_h_ratio = get_w_h_ratio(img)
   if height is None:
     plt.figure(figsize=(width,round(width*w_h_ratio,1)), dpi=dpi)
   else:
     plt.figure(figsize=(round(height*w_h_ratio,1),height), dpi=dpi)
+  if no_axis:
+    plt.axis('off')
   plt.grid(False)
   if len(img.shape)==2:
     plt.imshow(img, cmap='gray', vmin=0, vmax=255)
@@ -1662,10 +1668,12 @@ def add_reverse_geocode_column(data, coordinates_column, affine_transform_column
     return data
 
 def draw_poly(input_img, points, close = False, color = (255,0,0), thickness = 5, fill=False):
+    if len(points) == 3:
+        points = [tuple(pt[0]) for pt in points]
     if fill:
-      output_img = cv2.fillPoly(input_img, [np.array(points)], color=color)
+        output_img = cv2.fillPoly(input_img, [np.array(points)], color=color)
     else:
-      output_img = cv2.polylines(input_img, [np.array(points)], isClosed=close, color=color, thickness=thickness)
+        output_img = cv2.polylines(input_img, [np.array(points)], isClosed=close, color=color, thickness=thickness)
     return output_img
 
 
@@ -1743,3 +1751,35 @@ def search_seed_point_in_one_direction(seed_pixel_pool, contour, potential_seed,
 
     # exiting while looping meaning seed point meet criteria
     return potential_seed
+
+def extract_map_id(p):
+    return int(p.split('/')[-1].split('_')[0])
+
+def get_contour_centroid(cnt):
+    M = cv2.moments(cnt)
+    cx = int(M['m10']/M['m00'])
+    cy = int(M['m01']/M['m00'])
+    return (cx, cy)
+
+def get_representative_point(cnt):
+    # Reference: https://stackoverflow.com/a/65409262
+    poly = shapely_polygon(cnt.squeeze())
+    cx = int(round(poly.representative_point().x))
+    cy = int(round(poly.representative_point().y))
+    return cx, cy
+
+def point_list_to_contour(li):
+    return np.array([[pt] for pt in li], dtype=np.int32)
+
+def draw_text(img, text, pos, font = cv2.FONT_HERSHEY_SIMPLEX, size = 1, color = 0, thickness = 2, align = 'center', line_type = cv2.LINE_AA):
+    # opencv 4.1.2
+    if align == 'center':
+        text_width, text_height = cv2.getTextSize(text, fontFace = font, fontScale = size, thickness = thickness)[0]
+        x_offset = int(round(text_width/2))
+        y_offset = int(round(text_height/2))
+        pos = (pos[0] - x_offset, pos[1] - y_offset)
+    img = cv2.putText(img, text, pos, fontFace = font, fontScale = size, thickness = thickness, lineType = line_type, color = color)
+    return img
+
+
+
