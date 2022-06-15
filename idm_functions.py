@@ -43,6 +43,7 @@ Image.MAX_IMAGE_PIXELS = None
 
 from shapely.geometry import Polygon as shapely_polygon
 from shapely.geometry import Point as shapely_point
+from shapely.geometry import LineString as shapely_line_string
 from shapely.validation import make_valid as shapely_make_valid
 
 if 'rasterio' not in installed_libraries:
