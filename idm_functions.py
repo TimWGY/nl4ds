@@ -1263,75 +1263,6 @@ def get_vicinity(img,pixel_pos,radius): # pixel_pos in (x,y) format
   vicinity = img[max(0,y-radius):min(y+radius+1,img.shape[0]), max(0,x-radius):min(x+radius+1,img.shape[1])].copy()
   return vicinity
 
-def create_range_around(hsv_code, radius = (3,10,10)):
-  lower_bound, upper_bound = [], []
-  for i in range(len(hsv_code)):
-    lower_value = hsv_code[i]-radius[i]
-    upper_value = hsv_code[i]+radius[i]
-    if i == 0:
-      lower_value = lower_value % 180
-      upper_value = upper_value % 180
-    else:
-      lower_value = np.clip(lower_value, 0, 255)
-      upper_value = np.clip(upper_value, 0, 255)
-    lower_bound.append(lower_value)
-    upper_bound.append(upper_value)
-  return tuple(lower_bound), tuple(upper_bound)
-
-def find_area_of_color(img, hsv_cde, radius, alpha = 0.5, dpi = 150, overlay = True, show = True, return_mask = False):
-
-  img = img.copy()
-  img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-
-  lower_bound, upper_bound = create_range_around(hsv_code = hsv_cde, radius = radius)
-
-  if lower_bound[0]>upper_bound[0]: # for color hue like red that are on the edge of hue range
-    lower_mask = cv2.inRange(img_hsv, (0,lower_bound[1],lower_bound[2]), (lower_bound[0],upper_bound[1],upper_bound[2]))
-    upper_mask = cv2.inRange(img_hsv, (upper_bound[0],lower_bound[1],lower_bound[2]), (180,upper_bound[1],upper_bound[2]))
-    mask = cv2.bitwise_or(lower_mask, upper_mask)
-  else:  # for other color not on the edge
-    mask = cv2.inRange(img_hsv, lower_bound, upper_bound )
-
-  cropped_hsv = cv2.bitwise_and(img_hsv, img_hsv, mask=mask)
-  cropped = cv2.cvtColor(cropped_hsv, cv2.COLOR_HSV2BGR)
-  if show:
-    if overlay:
-      overlayed = cv2.addWeighted(cropped, alpha, img, 1-alpha, 0.0)
-      imshow(overlayed, dpi = dpi)
-    else:
-      imshow(cropped, dpi = dpi)
-  if return_mask:
-    return mask
-
-def flood_fill(img, seed_pixel, return_mask = False, fill_value = (0,0,0), color_variation = 5, neighbor = 4):
-
-  if isinstance( seed_pixel, list ):
-    seed_pixel_list = seed_pixel
-  else:
-    seed_pixel_list = [seed_pixel]
-
-  flood_img = img.copy()
-
-  if fill_value != (0,0,0):
-    black_pixels = np.where((flood_img[:, :, 0] == 0) & (flood_img[:, :, 1] == 0) & (flood_img[:, :, 2] == 0))
-    flood_img[black_pixels] = fill_value
-
-  h, w = flood_img.shape[:2]
-
-  mask_list = []
-  for seed_pixel in seed_pixel_list:
-    num, flood_img, mask, rect = cv2.floodFill(flood_img, np.zeros((h+2,w+2),np.uint8), seed_pixel, fill_value, tuple([color_variation]*3), tuple([color_variation]*3), neighbor)
-    mask_list.append(mask)
-
-  combined_mask = mask_list.pop(0)
-  while mask_list:
-    combined_mask = cv2.bitwise_or(combined_mask, mask_list.pop())
-  combined_mask = combined_mask[1:-1,1:-1]
-  combined_mask = combined_mask*255
-
-  if return_mask:
-    return flood_img, combined_mask
-  return flood_img
 
 #==================================================================================================#
 
@@ -1783,4 +1714,83 @@ def draw_text(img, text, pos, font = cv2.FONT_HERSHEY_SIMPLEX, size = 1, color =
     return img
 
 
+
+
+
+def get_seed_pixel_pool(input_img):
+    im = rgb_to_grey(input_img)
+    im = adaptive_threshold(im, size=101, C = 25)
+    im = invert_binary(im)
+    im = cv2.dilate(im, get_kernel(3), iterations = 2)
+    im = invert_binary(im)
+    return im
+
+def flood_fill(img, seed_pixel, color_mode = 'rgb', color_variations = (5,5,5), neighbor = 8, fill_value = (0,0,0), return_mask = True):
+
+    flood_img = img.copy()
+
+    if fill_value != (0,0,0):
+        black_pixels = np.where((flood_img[:, :, 0] == 0) & (flood_img[:, :, 1] == 0) & (flood_img[:, :, 2] == 0))
+        flood_img[black_pixels] = fill_value
+
+    h, w = flood_img.shape[:2]
+
+    seed_pixel_list = seed_pixel if isinstance( seed_pixel, list ) else [seed_pixel]
+
+    mask_list = []
+    for seed_pixel in seed_pixel_list:
+        num, flood_img, mask, rect = cv2.floodFill(flood_img, np.zeros((h+2,w+2),np.uint8), seed_pixel, fill_value, color_variations, color_variations, neighbor)
+        mask_list.append(mask)
+
+    combined_mask = mask_list.pop(0)
+    while mask_list:
+        combined_mask = cv2.bitwise_or(combined_mask, mask_list.pop())
+    combined_mask = combined_mask[1:-1,1:-1]
+    combined_mask = combined_mask*255
+
+    if return_mask:
+        return combined_mask
+    else:
+        return flood_img
+
+
+def create_range_around_hsv_code(hsv_code, radius = (3,10,10)):
+  lower_bound, upper_bound = [], []
+  for i in range(len(hsv_code)):
+    lower_value = hsv_code[i]-radius[i]
+    upper_value = hsv_code[i]+radius[i]
+    if i == 0:
+      lower_value = lower_value % 180
+      upper_value = upper_value % 180
+    else:
+      lower_value = np.clip(lower_value, 0, 255)
+      upper_value = np.clip(upper_value, 0, 255)
+    lower_bound.append(lower_value)
+    upper_bound.append(upper_value)
+  return tuple(lower_bound), tuple(upper_bound)
+
+def find_area_of_hsv_color(img, hsv_code, radius, alpha = 0.5, dpi = 150, overlay = True, show = True, return_mask = False):
+
+  img = img.copy()
+  img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+  lower_bound, upper_bound = create_range_around_hsv_code(hsv_code = hsv_code, radius = radius)
+
+  if lower_bound[0]>upper_bound[0]: # for color hue like red that are on the edge of hue range
+    lower_mask = cv2.inRange(img_hsv, (0,lower_bound[1],lower_bound[2]), (lower_bound[0],upper_bound[1],upper_bound[2]))
+    upper_mask = cv2.inRange(img_hsv, (upper_bound[0],lower_bound[1],lower_bound[2]), (180,upper_bound[1],upper_bound[2]))
+    mask = cv2.bitwise_or(lower_mask, upper_mask)
+  else:  # for other color not on the edge
+    mask = cv2.inRange(img_hsv, lower_bound, upper_bound)
+
+  cropped_hsv = cv2.bitwise_and(img_hsv, img_hsv, mask=mask)
+  cropped = cv2.cvtColor(cropped_hsv, cv2.COLOR_HSV2BGR)
+  if show:
+    if overlay:
+      overlayed = cv2.addWeighted(cropped, alpha, img, 1-alpha, 0.0)
+      imshow(overlayed, dpi = dpi)
+    else:
+      imshow(cropped, dpi = dpi)
+  if return_mask:
+    return mask
 
