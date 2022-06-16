@@ -26,6 +26,8 @@ from matplotlib import cm
 from matplotlib.patches import Polygon as mpb_polygon
 plt.rcParams["font.serif"] = "cmr10" 
 
+from sklearn.cluster import KMeans
+
 import ast
 import shutil
 from glob import glob
@@ -77,12 +79,7 @@ import sklearn
 from sklearn.cluster import DBSCAN
 from sklearn.linear_model import LinearRegression
 
-if 'scipy' not in installed_libraries:
-  os.system('pip install scipy')
-import scipy
-from scipy.cluster.vq import whiten
-from scipy.cluster.vq import kmeans
-from scipy.cluster.vq import vq
+
 
 if 'plotly' not in installed_libraries:
   os.system('pip install plotly')
@@ -1665,7 +1662,7 @@ def crop_to_and_mask_with_contour(img, cnt):
     masked_img = mask_with_contours(cropped_img, [relative_cnt])
     return masked_img
 
-def fast_analyze_color(img, n_clusters, sample_size = 100000, tuplize = True):
+def fast_analyze_color(img, n_clusters, sample_size = 100000):
 
     # assuming 3-channel RGB
     img = img.reshape(-1,3)
@@ -1678,23 +1675,20 @@ def fast_analyze_color(img, n_clusters, sample_size = 100000, tuplize = True):
     if pixel_count > sample_size:
         img = img[np.random.choice(pixel_count, sample_size, replace=False), :]
 
-    # get std for reverse-transform the kmeans results to a rgb code
-    reverse_whiten_array = img.std(axis=0)
-
-    # normalize observations on a per feature basis, forcing features to have unit variance # scipy.cluster.vq
-    img_ = whiten(img)
-
     # run kmeans
-    cluster_centers, avg_distortion = kmeans(img_, n_clusters)
+    kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(img)
 
-    # reverse-transform the cluster centers
-    color_codes = (cluster_centers * reverse_whiten_array).astype(np.uint8)
+    # calculate color codes
+    color_codes = [tuple(c) for c in np.round(kmeans.cluster_centers_).astype(np.uint8)]
 
-    if tuplize:
-        # tuplize the value 
-        color_codes = [tuple(c) for c in color_codes]
+    # count color proportions
+    color_pixel_counts = tuple(np.bincount(kmeans.labels_))
 
-    return color_codes
+    # re-order the color info in order of ascending proportion
+    main_colors_info = sorted(zip(color_pixel_counts, color_codes), reverse=True)
+
+    return main_colors_info
+
 
 
 
