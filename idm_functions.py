@@ -724,146 +724,6 @@ def combine_relative_tables(relative_table_filepath_list, rotated = False):
 
 #======================================== COLOR ANALYZER ==========================================#
 
-def analyze_color(input_image, transparency_threshold = 50, plot_3d = False, plot_bar = True, n_cluster = None, max_cluster = 10, ignore_pure_black = True, use_sample = True, confirm_sample = False, return_colors = True, return_hsv = False):
-
-  # Copy to prevent modification (useful but mechanism needs clarification)
-  input_image = input_image.copy()
-
-  # Check input shape
-  assert(len(input_image.shape) == 3)
-  assert(input_image.shape[-1] in {3,4})
-
-  # Turn color info of pixels into dataframe, filter by transparency if RGBA image is passed
-  if input_image.shape[-1] == 4:
-    color_df = pd.DataFrame(input_image.reshape(-1,4), columns=list('rgba'))
-    # Get the rgb info of pixels in the non-transparent part of the image
-    color_df = color_df[color_df['a']>=transparency_threshold]
-  if input_image.shape[-1] == 3:
-    color_df = pd.DataFrame(input_image.reshape(-1,3), columns=list('rgb'))
-
-  if ignore_pure_black:
-    color_df = color_df[~((color_df['r']==0)&(color_df['g']==0)&(color_df['b']==0))]
-
-  # Handle large pixel color_df
-  if len(color_df)>1e5:
-      if use_sample:
-        if confirm_sample:
-          sample_or_not = True
-        else:
-          sample_or_not = (input('Large image detected, would you like to sample the pixels in this image? (Y/N) ')).lower()[0] == 'y'
-      if sample_or_not:
-        if not confirm_sample:
-          print('Sampled 100,000 pixels from the image, note that you can also resize the image before passing it to this function.')
-        color_df = color_df.sample(n = int(1e5), random_state = 0)
-      else:
-        print('Not sampling performed, but note that rendering 3D plot for the pixels may crash your session and K-means clustering will be slow.')
-
-  # Get std for reverse-transform the kmeans results to a meaningful rgb palette
-  r_std, g_std, b_std = color_df[list('rgb')].std()
-  reverse_whiten_array = np.array((r_std, g_std, b_std))
-
-  # Normalize observations on a per feature basis, forcing features to have unit variance
-  # Doc: https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.vq.whiten.html
-  for color in list('rgb'):
-    color_df['scaled_'+color] = whiten(color_df[color])
-
-  ## 3D scatter plot showing color groups
-  if plot_3d:
-    trace = go.Scatter3d(x=color_df['r'], y=color_df['g'], z=color_df['b'], mode='markers',
-                        marker=dict(color=['rgb({},{},{})'.format(r,g,b) for r,g,b in zip(color_df['r'].values, color_df['g'].values, color_df['b'].values)],
-                                    size=1, opacity=1))
-    layout = go.Layout(margin=dict(l=0, r=0, b=0, t=0))
-    fig = go.Figure(data=[trace], layout=layout)
-    fig.show()
-
-  ## Use K-means to identify main colors
-  cluster_centers_list = []
-  avg_distortion_list = []
-
-  if n_cluster != None:
-    n_cluster_range = [n_cluster-1] # note minus 1 to get exactly n
-  else:
-    n_cluster_range = range(max_cluster+1)
-
-  if plot_bar:
-    # Initialize plt graph
-    f, ax = plt.subplots(len(n_cluster_range), 1, figsize=(10,10))
-
-  for n in n_cluster_range:
-
-    ###### Train clusters ######
-
-    cluster_centers, avg_distortion = kmeans(color_df[['scaled_r', 'scaled_g', 'scaled_b']], n + 1)
-
-    ###### Assign labels ######
-
-    labels, distortions = vq( color_df[['scaled_r', 'scaled_g', 'scaled_b']] , cluster_centers)
-
-    color_df['label'] = labels
-    color_df['distortion'] = distortions
-
-    ###### Build palette ######
-
-    # These parameter affects visual style only and can be exposed to user later
-    height = 200
-    width = 1000
-    gap_size = 5
-    palette = np.zeros((height, width, 3), np.uint8)
-
-    # Count how many pixels falls under which category, let this decides the color's relative width in the palette
-    cluster_proportion = color_df['label'].value_counts().sort_index()/len(color_df)
-    cluster_width_list = (cluster_proportion * width).to_list()
-    cluster_width_list = [int(x) for x in saferound(cluster_width_list, places=0)]
-
-    # Reorder clusters and widths according to the proportion, largest to smallest
-    reordered_cluster_df = pd.DataFrame(zip(cluster_centers, cluster_width_list),columns=['cluster','width']).sort_values('width',ascending=False)
-    cluster_centers = reordered_cluster_df['cluster'].tolist()
-    cluster_width_list = reordered_cluster_df['width'].tolist()
-
-    # Storing information
-    cluster_centers_list.append(cluster_centers)
-    avg_distortion_list.append(avg_distortion)
-
-    if plot_bar:
-      # Coloring the palette canvas based on color and width
-      endpoints = list(np.cumsum(cluster_width_list))
-      startpoints = [0]+endpoints[:-1]
-      for cluster_index in range(len(cluster_centers)):
-        # Notice here we apply the reverse_whiten_array to get meaningful RGB colors
-        palette[:, startpoints[cluster_index]+gap_size:endpoints[cluster_index], :] = cluster_centers[cluster_index] * reverse_whiten_array
-        palette[:, startpoints[cluster_index]:startpoints[cluster_index]+gap_size, :] = (255,255,255)
-
-      # Displaying the palette when performing K-means with parameter n
-      if n_cluster != None:
-        ax.imshow(palette)
-        ax.axis('off')
-      else:
-        ax[n].imshow(palette)
-        ax[n].axis('off')
-
-  if plot_bar:
-    ### Show the entire palette
-    f.tight_layout()
-    plt.show()
-    ### Show the elbow plot for choosing best n_cluster parameter for K-means
-    fig = plt.figure()
-    plt.scatter(x = n_cluster_range, y = avg_distortion_list)
-    fig.suptitle('Elbow Plot for K-means')
-    plt.xlabel('Number of Clusters')
-    plt.ylabel('Average Distortion')
-    print()
-
-
-  if return_colors:
-
-    colors_list = [(cluster_centers*reverse_whiten_array).astype(np.uint8) for cluster_centers in cluster_centers_list]
-    if return_hsv: 
-      colors_list = [ [tuple(np.round(colorsys.rgb_to_hsv(* color),2)) for color in cluster] for cluster in colors_list]
-  
-    if n_cluster != None:
-      return colors_list[0]
-    else:
-      return colors_list
 
 def check_hsv_for_criteria(hsv_code, h_range, s_range, v_range):
   h, s, v = hsv_code
@@ -1137,7 +997,6 @@ def draw_many_contours(img, contours, text_content_list=None, dpi=None, border_w
 
 ###### SELECT WITH CONTOURS ######
 def mask_with_contours(img, contours):
-  # img = img.copy()
   mask_color = 255 if len(img.shape)==2 else (255,255,255) if len(img.shape)==3 else 255
   contours_mask = cv2.drawContours(np.zeros(img.shape, dtype=np.uint8), contours, -1, mask_color, -1)
   masked_img = cv2.bitwise_and(img, contours_mask)
@@ -1794,3 +1653,197 @@ def find_area_of_hsv_color(img, hsv_code, radius, alpha = 0.5, dpi = 150, overla
   if return_mask:
     return mask
 
+
+
+
+
+def crop_to_and_mask_with_contour(img, cnt):
+    x_min, y_min = cnt.min(axis=0)[0]
+    x_max, y_max = cnt.max(axis=0)[0]
+    cropped_img = img[y_min:y_max, x_min:x_max]
+    relative_cnt = cnt - np.array([x_min,y_min],dtype=np.int32)
+    masked_img = mask_with_contours(cropped_img, [relative_cnt])
+    return masked_img
+
+def fast_analyze_color(img, n_clusters, sample_size = 100000, tuplize = True):
+
+    # assuming 3-channel RGB
+    img = img.reshape(-1,3)
+
+    # ignore pure black pixles (background)
+    img = img[~np.all(img == 0, axis=1)]
+
+    # random downsampling if pixel count is greater than specified sample size
+    pixel_count = img.shape[0]
+    if pixel_count > sample_size:
+        img = img[np.random.choice(pixel_count, sample_size, replace=False), :]
+
+    # get std for reverse-transform the kmeans results to a rgb code
+    reverse_whiten_array = img.std(axis=0)
+
+    # normalize observations on a per feature basis, forcing features to have unit variance # scipy.cluster.vq
+    img_ = whiten(img)
+
+    # run kmeans
+    cluster_centers, avg_distortion = kmeans(img_, n_clusters)
+
+    # reverse-transform the cluster centers
+    color_codes = (cluster_centers * reverse_whiten_array).astype(np.uint8)
+
+    if tuplize:
+        # tuplize the value 
+        color_codes = [tuple(c) for c in color_codes]
+
+    return color_codes
+
+
+
+
+
+
+
+
+
+
+def analyze_color(input_image, transparency_threshold = 50, plot_3d = False, plot_bar = True, n_cluster = None, max_cluster = 10, ignore_pure_black = True, use_sample = True, confirm_sample = False, return_colors = True, return_hsv = False):
+
+  ### Need update
+
+  # Copy to prevent modification (useful but mechanism needs clarification)
+  input_image = input_image.copy()
+
+  # Check input shape
+  assert(len(input_image.shape) == 3)
+  assert(input_image.shape[-1] in {3,4})
+
+  # Turn color info of pixels into dataframe, filter by transparency if RGBA image is passed
+  if input_image.shape[-1] == 4:
+    color_df = pd.DataFrame(input_image.reshape(-1,4), columns=list('rgba'))
+    # Get the rgb info of pixels in the non-transparent part of the image
+    color_df = color_df[color_df['a']>=transparency_threshold]
+  if input_image.shape[-1] == 3:
+    color_df = pd.DataFrame(input_image.reshape(-1,3), columns=list('rgb'))
+
+  if ignore_pure_black:
+    color_df = color_df[~((color_df['r']==0)&(color_df['g']==0)&(color_df['b']==0))]
+
+  # Handle large pixel color_df
+  if len(color_df)>1e5:
+      if use_sample:
+        if confirm_sample:
+          sample_or_not = True
+        else:
+          sample_or_not = (input('Large image detected, would you like to sample the pixels in this image? (Y/N) ')).lower()[0] == 'y'
+      if sample_or_not:
+        if not confirm_sample:
+          print('Sampled 100,000 pixels from the image, note that you can also resize the image before passing it to this function.')
+        color_df = color_df.sample(n = int(1e5), random_state = 0)
+      else:
+        print('Not sampling performed, but note that rendering 3D plot for the pixels may crash your session and K-means clustering will be slow.')
+
+  # Get std for reverse-transform the kmeans results to a meaningful rgb palette
+  r_std, g_std, b_std = color_df[list('rgb')].std()
+  reverse_whiten_array = np.array((r_std, g_std, b_std))
+
+  # Normalize observations on a per feature basis, forcing features to have unit variance
+  # Doc: https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.vq.whiten.html
+  for color in list('rgb'):
+    color_df['scaled_'+color] = whiten(color_df[color])
+
+  ## 3D scatter plot showing color groups
+  if plot_3d:
+    trace = go.Scatter3d(x=color_df['r'], y=color_df['g'], z=color_df['b'], mode='markers',
+                        marker=dict(color=['rgb({},{},{})'.format(r,g,b) for r,g,b in zip(color_df['r'].values, color_df['g'].values, color_df['b'].values)],
+                                    size=1, opacity=1))
+    layout = go.Layout(margin=dict(l=0, r=0, b=0, t=0))
+    fig = go.Figure(data=[trace], layout=layout)
+    fig.show()
+
+  ## Use K-means to identify main colors
+  cluster_centers_list = []
+  avg_distortion_list = []
+
+  if n_cluster != None:
+    n_cluster_range = [n_cluster-1] # note minus 1 to get exactly n
+  else:
+    n_cluster_range = range(max_cluster+1)
+
+  if plot_bar:
+    # Initialize plt graph
+    f, ax = plt.subplots(len(n_cluster_range), 1, figsize=(10,10))
+
+  for n in n_cluster_range:
+
+    ###### Train clusters ######
+
+    cluster_centers, avg_distortion = kmeans(color_df[['scaled_r', 'scaled_g', 'scaled_b']], n + 1)
+
+    ###### Assign labels ######
+
+    labels, distortions = vq( color_df[['scaled_r', 'scaled_g', 'scaled_b']] , cluster_centers)
+
+    color_df['label'] = labels
+    color_df['distortion'] = distortions
+
+    ###### Build palette ######
+
+    # These parameter affects visual style only and can be exposed to user later
+    height = 200
+    width = 1000
+    gap_size = 5
+    palette = np.zeros((height, width, 3), np.uint8)
+
+    # Count how many pixels falls under which category, let this decides the color's relative width in the palette
+    cluster_proportion = color_df['label'].value_counts().sort_index()/len(color_df)
+    cluster_width_list = (cluster_proportion * width).to_list()
+    cluster_width_list = [int(x) for x in saferound(cluster_width_list, places=0)]
+
+    # Reorder clusters and widths according to the proportion, largest to smallest
+    reordered_cluster_df = pd.DataFrame(zip(cluster_centers, cluster_width_list),columns=['cluster','width']).sort_values('width',ascending=False)
+    cluster_centers = reordered_cluster_df['cluster'].tolist()
+    cluster_width_list = reordered_cluster_df['width'].tolist()
+
+    # Storing information
+    cluster_centers_list.append(cluster_centers)
+    avg_distortion_list.append(avg_distortion)
+
+    if plot_bar:
+      # Coloring the palette canvas based on color and width
+      endpoints = list(np.cumsum(cluster_width_list))
+      startpoints = [0]+endpoints[:-1]
+      for cluster_index in range(len(cluster_centers)):
+        # Notice here we apply the reverse_whiten_array to get meaningful RGB colors
+        palette[:, startpoints[cluster_index]+gap_size:endpoints[cluster_index], :] = cluster_centers[cluster_index] * reverse_whiten_array
+        palette[:, startpoints[cluster_index]:startpoints[cluster_index]+gap_size, :] = (255,255,255)
+
+      # Displaying the palette when performing K-means with parameter n
+      if n_cluster != None:
+        ax.imshow(palette)
+        ax.axis('off')
+      else:
+        ax[n].imshow(palette)
+        ax[n].axis('off')
+
+  if plot_bar:
+    ### Show the entire palette
+    f.tight_layout()
+    plt.show()
+    ### Show the elbow plot for choosing best n_cluster parameter for K-means
+    fig = plt.figure()
+    plt.scatter(x = n_cluster_range, y = avg_distortion_list)
+    fig.suptitle('Elbow Plot for K-means')
+    plt.xlabel('Number of Clusters')
+    plt.ylabel('Average Distortion')
+    print()
+
+
+  if return_colors:
+
+    colors_list = [(cluster_centers*reverse_whiten_array).astype(np.uint8) for cluster_centers in cluster_centers_list]
+    if return_hsv: 
+      colors_list = [ [tuple(np.round(colorsys.rgb_to_hsv(* color),2)) for color in cluster] for cluster in colors_list]
+  
+    if n_cluster != None:
+      return colors_list[0]
+    else:
+      return colors_list
