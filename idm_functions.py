@@ -890,11 +890,12 @@ def find_contours(img, min_area_size = 1000, max_area_size = None, top_k = None,
   return contours
 
 ###### SMOOTH/SIMPLIFY CONTOURS ######
-def approximate_contours(contours = [], precision_level = 0.01, border_width = 2, show = False, img = None):
+def approximate_contours(contours = [], precision_level = 0.01, border_width = 2, show = False, img = None, epsilon_cap = 3):
   approx_contours = []
   for cnt in contours:
     hull = cv2.convexHull(cnt)
     epsilon = precision_level*cv2.arcLength(hull,True)
+    epsilon = min(epsilon, epsilon_cap)
     approx = cv2.approxPolyDP(cnt,epsilon,True)
     approx_contours.append(approx)
   approx_contours = [cnt for cnt in approx_contours if len(cnt)>2]
@@ -952,7 +953,7 @@ def stop_at_abrupt_change(contours, sudden_change_ratio = 10):
   return output_contours
 
 ###### VISUALIZE CONTOURS ######
-def draw_many_contours(img, contours, text_content_list=None, dpi=None, border_width=2, n_colors = 10, font_scale = 1, is_bgr = True, save_not_show = False):
+def draw_many_contours(img, contours, text_content_list=None, dpi=None, border_width=2, n_colors = 10, border_color = None, font_scale = 1, is_bgr = True, save_not_show = False):
   
   color_range = range(1,n_colors*10+1,n_colors)
   colors = [hsv2bgr(num/100) if is_bgr else hsv2rgb(num/100) for num in color_range]
@@ -969,7 +970,10 @@ def draw_many_contours(img, contours, text_content_list=None, dpi=None, border_w
 
   for i in range(len(contours)):
     cnt = contours[i]
-    color = colors[i%n_colors]
+    if border_color is None:
+      color = colors[i%n_colors]
+    else:
+      color = border_color
     colored_img = cv2.drawContours(colored_img, [cnt], 0, color, border_width)
 
 
@@ -1463,9 +1467,7 @@ def add_reverse_geocode_column(data, coordinates_column, affine_transform_column
     data[new_column] = data[[coordinates_column, affine_transform_column]].apply(lambda row: [raster_geocode(pt, row[affine_transform_column], reverse=True) for pt in row[coordinates_column]], axis=1)
     return data
 
-def draw_poly(input_img, points, close = False, color = (255,0,0), thickness = 5, fill=False):
-    if len(points) == 3:
-        points = [tuple(pt[0]) for pt in points]
+def draw_poly(input_img, points, close = False, color = (255,0,0), thickness = 5, fill=False):    
     if fill:
         output_img = cv2.fillPoly(input_img, [np.array(points)], color=color)
     else:
@@ -1744,3 +1746,29 @@ def plot_palette(color_info, mode='rgb', width = 1000, height = None, gap_size =
         plt.text(x = x_pos, y = y_pos, s = str(cluster_index), fontsize = font_size, ha = 'center', va = 'center')
     plt.axis('off')
     plt.show()
+
+
+# color_classifier, centroid_colors_info = fast_analyze_color( primary_color_temp_img_hsv, n_clusters=15, sample_size = 10000000, return_classifier = True )
+# plot_palette(centroid_colors_info, mode='hsv', dpi=150, jiggle=True)
+
+# color_name_to_color_code_mapping = {'background':[0,1,2,3,5,8,11],
+# 'red':[4,6,9],
+# 'yellow':[7,14],
+# 'green':[10,12],
+# 'blue':[13]}
+
+# color_code_to_color_name_mapping = {}
+# for k,v in color_name_to_color_code_mapping.items():
+#     color_code_to_color_name_mapping.update( dict(zip(v, [k]*len(v))) ) 
+
+# color_cluster_labels = color_classifier.predict(   primary_color_temp_img_hsv[0,:,:]   )
+
+# footprint_gdf['primary_color_name'] = list(map(color_code_to_color_name_mapping.get, color_cluster_labels))
+
+# footprint_gdf['primary_color_name'].value_counts(normalize=True).round(2)
+
+# # background    0.60
+# # red           0.15
+# # green         0.14
+# # yellow        0.11
+# # blue          0.01
