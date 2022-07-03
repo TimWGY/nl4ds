@@ -1,4 +1,4 @@
- import os
+import os
 os.system('pip list >> installed_libraries.txt')
 with open('/content/installed_libraries.txt','r') as f:
   installed_libraries_string = f.read()
