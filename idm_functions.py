@@ -1,4 +1,4 @@
-import os
+ import os
 os.system('pip list >> installed_libraries.txt')
 with open('/content/installed_libraries.txt','r') as f:
   installed_libraries_string = f.read()
@@ -139,7 +139,7 @@ def get_non_single_elements(data, field):
 
 def try_length_is_zero(x):
   try:
-    if isinstance(x,int):
+    if isinstance(x,int) or isinstance(x,float):
       return False
     return len(x)==0
   except:
@@ -407,7 +407,29 @@ def hsv_code_to_rgb_code(hsv_tuple):
   pixel[0,0,:] = hsv_tuple
   return tuple([int(v) for v in list(cv2.cvtColor(pixel, cv2.COLOR_HSV2RGB)[0][0])])
 
+def hex_code_to_rgb_code(hex_code):
+    # reference: https://stackoverflow.com/a/29643643
+    hex_code = hex_code.lstrip('#')
+    return tuple(int(hex_code[i:i+2], 16) for i in (0, 2, 4))
 
+def hex_code_to_hsv_code(hex_tuple):
+  return hex_code_to_rgb_code(rgb_code_to_hsv_code(hex_tuple))
+
+
+# def check_within_range(code, lower_range, upper_range):
+#     a,b,c = code
+#     a_low, b_low, c_low = lower_range
+#     a_high, b_high, c_high = upper_range
+#     return a_low <= a and a <= a_high and b_low <= b and b <= b_high and c_low <= c and c <= c_high
+
+# for key in exemplar_hsv_code_to_color_name_mapping.keys():
+#     lower_range, upper_range = create_range_around_hsv_code(key, radius= (3,9,9) if exemplar_hsv_code_to_color_name_mapping[key]=='brown' else (10,10,10))
+#     if lower_range[0]>upper_range[0]:
+#         if check_within_range( hsv_code, lower_range, (180,upper_range[1],upper_range[2]) ) or check_within_range( hsv_code, (0,lower_range[1],lower_range[2]), upper_range ) :
+#             return exemplar_hsv_code_to_color_name_mapping[key]
+#     else:
+#         if check_within_range( hsv_code, lower_range, upper_range ):
+#             return exemplar_hsv_code_to_color_name_mapping[key]
 
 #==================================================================================================#
 
@@ -840,15 +862,30 @@ def find_contours(img, min_area_size = 1000, max_area_size = None, top_k = None,
 
   img = img.copy()
 
+  opencv_version = int(cv2.__version__.split('.')[0])
+
   if only_exterior:
-    contours, hierarchy = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    output = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if opencv_version == 4:
+      contours, hierarchy = output
+    elif opencv_version == 3:
+      _, contours, hierarchy = output
   elif only_lowest_k != None:
-    contours, hierarchy = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    output = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    if opencv_version == 4:
+      contours, hierarchy = output
+    elif opencv_version == 3:
+      _, contours, hierarchy = output
     hierarchy_df = create_hierarchy_df(hierarchy)
     contours_indices = hierarchy_df.loc[hierarchy_df['level'].isin(  sorted(hierarchy_df['level'].unique())[:only_lowest_k]  )].index.tolist()
     contours = np.array(contours, dtype=object)[contours_indices]
   else:
-    contours, hierarchy = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    output = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    if opencv_version == 4:
+      contours, hierarchy = output
+    elif opencv_version == 3:
+      _, contours, hierarchy = output
 
   contours = [cnt for cnt in contours if get_contour_area_size(cnt)>=min_area_size]
   if max_area_size != None:
@@ -966,7 +1003,12 @@ def draw_many_contours(img, contours, text_content_list=None, dpi=None, border_w
     else:
       colored_img = rgb_to_bgr(img)
 
-  text_content_list = range(len(contours)) if text_content_list is None else text_content_list
+  if text_content_list=='':
+    text_content_list = ['']*len(contours)
+  elif text_content_list is None:
+    text_content_list = range(len(contours))
+  else:
+    pass
 
   for i in range(len(contours)):
     cnt = contours[i]
@@ -1559,6 +1601,7 @@ def get_contour_centroid(cnt):
     cy = int(M['m01']/M['m00'])
     return (cx, cy)
 
+
 def get_representative_point(cnt):
     # Reference: https://stackoverflow.com/a/65409262
     poly = shapely_polygon(cnt.squeeze())
@@ -1568,6 +1611,13 @@ def get_representative_point(cnt):
 
 def point_list_to_contour(li):
     return np.array([[pt] for pt in li], dtype=np.int32)
+
+def get_min_area_rect_stats(cnt):
+    min_area_rect_center, min_area_rect_w_h, min_area_rect_angle=cv2.minAreaRect(cnt)
+    _w, _h = min_area_rect_w_h
+    min_area_rect_aspect_ratio = round(max( _w/_h, _h/_w ),2)
+    return min_area_rect_center,min_area_rect_aspect_ratio,min_area_rect_angle
+
 
 def draw_text(img, text, pos, font = cv2.FONT_HERSHEY_SIMPLEX, size = 1, color = 0, thickness = 2, align = 'center', line_type = cv2.LINE_AA):
     # opencv 4.1.2
@@ -1664,12 +1714,14 @@ def find_area_of_hsv_color(img, hsv_code, radius, alpha = 0.5, dpi = 150, overla
 
 
 
-def crop_to_and_mask_with_contour(img, cnt):
+def crop_to_and_mask_with_contour(img, cnt, return_relative_pos = False):
     x_min, y_min = cnt.min(axis=0)[0]
     x_max, y_max = cnt.max(axis=0)[0]
     cropped_img = img[y_min:y_max, x_min:x_max]
     relative_cnt = cnt - np.array([x_min,y_min],dtype=np.int32)
     masked_img = mask_with_contours(cropped_img, [relative_cnt])
+    if return_relative_pos:
+      return masked_img, x_min, y_min
     return masked_img
 
 def rgb_to_hsv(img):
