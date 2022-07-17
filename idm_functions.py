@@ -396,7 +396,7 @@ def lab_code_to_rgb_code(lab_tuple):
   pixel = np.zeros((1,1,3),dtype=np.uint8)
   pixel[0,0,:] = lab_tuple if isinstance(lab_tuple,tuple) else tuple(lab_tuple)
   return tuple([int(v) for v in list(cv2.cvtColor(pixel, cv2.COLOR_LAB2RGB)[0][0])])
-
+ 
 def rgb_code_to_hsv_code(rgb_tuple):
   pixel = np.zeros((1,1,3),dtype=np.uint8)
   pixel[0,0,:] = rgb_tuple
@@ -1612,6 +1612,9 @@ def get_representative_point(cnt):
 def point_list_to_contour(li):
     return np.array([[pt] for pt in li], dtype=np.int32)
 
+def contour_to_point_list(cnt):
+    return [tuple(pt[0]) for pt in cnt]
+
 def get_min_area_rect_stats(cnt):
     min_area_rect_center, min_area_rect_w_h, min_area_rect_angle=cv2.minAreaRect(cnt)
     _w, _h = min_area_rect_w_h
@@ -1711,13 +1714,17 @@ def find_area_of_hsv_color(img, hsv_code, radius, alpha = 0.5, dpi = 150, overla
     return mask
 
 
-
+def get_min_area_rect_stats(cnt):
+    min_area_rect_center, min_area_rect_w_h, min_area_rect_angle=cv2.minAreaRect(cnt)
+    _w, _h = min_area_rect_w_h
+    min_area_rect_aspect_ratio = round(max( _w/_h, _h/_w ),2)
+    return min_area_rect_center,min_area_rect_aspect_ratio,min_area_rect_angle
 
 
 def crop_to_and_mask_with_contour(img, cnt, return_relative_pos = False):
     x_min, y_min = cnt.min(axis=0)[0]
     x_max, y_max = cnt.max(axis=0)[0]
-    cropped_img = img[y_min:y_max, x_min:x_max]
+    cropped_img = img[y_min:y_max+1, x_min:x_max+1]
     relative_cnt = cnt - np.array([x_min,y_min],dtype=np.int32)
     masked_img = mask_with_contours(cropped_img, [relative_cnt])
     if return_relative_pos:
@@ -1824,3 +1831,22 @@ def plot_palette(color_info, mode='rgb', width = 1000, height = None, gap_size =
 # # green         0.14
 # # yellow        0.11
 # # blue          0.01
+
+def round_point(pt):
+    if pt[0] is None or pt[1] is None:
+        return np.nan
+    return tuple(np.round(pt,0).astype(int))
+
+def round_value(v):
+    if v is None or np.isnan(v):
+        return np.nan
+    return int(round(v))
+
+def camel_to_snake(x):
+    if x.isupper():
+        return x.lower()
+    output = ''
+    for l in list(x):
+        output += '_'+l.lower() if l.isupper() else l
+    output = output.strip('_')
+    return output
