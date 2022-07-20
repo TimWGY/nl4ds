@@ -80,16 +80,6 @@ from sklearn.cluster import DBSCAN
 from sklearn.linear_model import LinearRegression
 
 
-
-if 'plotly' not in installed_libraries:
-  os.system('pip install plotly')
-import plotly
-
-if 'plotly-express' not in installed_libraries:
-  os.system('pip install plotly-express')
-import plotly.express as px
-import plotly.graph_objs as go
-
 if 'python-Levenshtein' not in installed_libraries:
   os.system('pip install python-Levenshtein')
 if 'thefuzz' not in installed_libraries:
