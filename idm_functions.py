@@ -38,10 +38,15 @@ import json
 
 from collections import Counter
 
+import os
+os.environ["OPENCV_IO_ENABLE_JASPER"] = "true"
+
 import cv2
 from google.colab.patches import cv2_imshow
 from PIL import Image
 Image.MAX_IMAGE_PIXELS = None
+
+from io import BytesIO
 
 from shapely.geometry import Polygon as shapely_polygon
 from shapely.geometry import Point as shapely_point
@@ -169,7 +174,12 @@ clear_output()
 def get_ms_ocr_result(read_image_path, wait_interval=10): 
 
   # Open the image
-  read_image = open(read_image_path, "rb")
+  if read_image_path.endswith('.jp2'):
+    image = cv2.imread(read_image_path)
+    success, encoded_image = cv2.imencode('.jpg', image)
+    read_image = BytesIO(encoded_image.tobytes())
+  else:
+    read_image = open(read_image_path, "rb")
 
   # Call API with image and raw response (allows you to get the operation location)
   read_response = computervision_client.read_in_stream(read_image, raw=True)
@@ -1542,11 +1552,8 @@ def crop_and_downscale(img, downscale_ratio, x_start = None, x_end = None, y_sta
 def distances_to_point(data, field, point):
   return data[field].apply(lambda x: np.linalg.norm(np.array(x)-np.array(point)))
 
-
-
 def get_kernel(size):
-    return cv2.getStructuringElement(cv2.MORPH_RECT,(size,size))
-
+    return cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(size,size))
 
 def move_point(pt, direction, step=1):
     x,y = pt
@@ -1604,6 +1611,9 @@ def point_list_to_contour(li):
 
 def contour_to_point_list(cnt):
     return [tuple(pt[0]) for pt in cnt]
+
+def get_min_area_rect_cnt(cnt):
+    return np.int0(cv2.boxPoints(cv2.minAreaRect(cnt)))
 
 def get_min_area_rect_stats(cnt):
     min_area_rect_center, min_area_rect_w_h, min_area_rect_angle=cv2.minAreaRect(cnt)
