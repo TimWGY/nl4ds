@@ -176,6 +176,10 @@ def get_ms_ocr_result(read_image_path, wait_interval=10):
   # Open the image
   if read_image_path.endswith('.jp2'):
     image = cv2.imread(read_image_path)
+    max_dimension = max(image.shape[:2])
+    if max_dimension > 10000:
+        target_shape = tuple(np.int0(np.floor(np.array(image.shape[:2])[::-1] / max_dimension * 10000)))
+        image = cv2.resize(image, target_shape, interpolation=cv2.INTER_AREA)
     success, encoded_image = cv2.imencode('.jpg', image)
     read_image = BytesIO(encoded_image.tobytes())
   else:
