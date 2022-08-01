@@ -294,18 +294,20 @@ def ms_ocr(img_path, mark_image = True, show_numeric = False, fontsize = 10, fig
     save_dict_to_json(result, raw_ocr_result_filepath)
   else:
     print('Raw OCR result found.')
-    result = read_dict_from_json(raw_ocr_result_filepath)
+    result = None
 
   ocr_result_table_filepath = img_path.split('.')[0] + '_ocr_result_table.csv'
   if not os.path.exists(ocr_result_table_filepath):
+    if result is None:
+      result = read_dict_from_json(raw_ocr_result_filepath)
     comp_df = parse_ms_ocr_result(result)
     comp_df.to_csv(ocr_result_table_filepath, index=False)
   else:
     print('OCR result table found.')
-    comp_df = pd.read_csv(ocr_result_table_filepath)
-    comp_df['bounding_box'] = comp_df['bounding_box'].apply(ast.literal_eval)
 
   if mark_image:
+    comp_df = pd.read_csv(ocr_result_table_filepath)
+    comp_df['bounding_box'] = comp_df['bounding_box'].apply(ast.literal_eval)
     if not show_numeric:
       comp_df = comp_df[~(comp_df['text'].str.isnumeric())]
     ocr_result_marked_img_path = img_path.split('.')[0] + '_ocr_result_marked_img.' + img_path.split('.')[1]
