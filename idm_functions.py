@@ -78,6 +78,10 @@ if 'colorsys' not in installed_libraries:
   os.system('pip install colorsys')
 import colorsys
 
+if 'unidecode' not in installed_libraries:
+  os.system('pip install unidecode')
+from unidecode import unidecode
+
 if 'sklearn' not in installed_libraries:
   os.system('pip install sklearn')
 import sklearn
@@ -257,6 +261,7 @@ def mark_ms_ocr_result(input_image_filepath, components_df, output_image_filepat
     # text
     plt.text(vertices[1][0], vertices[1][1], ocr_text.rstrip('$'), fontsize=fontsize, color='r', va="top")
 
+    right_side_center = tuple(right_side_center)
     if right_side_center != None:
       # right side center dot
       plt.text(right_side_center[0], right_side_center[1], '.', fontsize=8, color='#66FF66', ha='left', va="baseline")
@@ -453,16 +458,6 @@ def hex_code_to_hsv_code(hex_tuple):
 ###### UTILS FOR GET_BBOX_FEATURES ######
 def euc_dist(pt1, pt2, rounding = 1):
   return np.round(np.linalg.norm(pt2-pt1), rounding)
-def dist_from_point_to_line(p1, p2, p3):
-  """Return distance from P3 perpendicular to a line going through P1 and P2"""
-  return np.abs(np.cross(p2-p1, p1-p3)) / np.linalg.norm(p2-p1)
-def get_vector_direction(vector, rounding = 1):
-  """np_arctan2_in_degree (-180 to 180 reference angle is the positive direction of x axis in cartesian space)""" 
-  x, y = vector
-  return np.round(np.arctan2(y, x) * 180 / np.pi, rounding)
-
-def cv2_contourize(np_bbox): 
-  return np.array(np_bbox).reshape((-1,1,2)).astype(np.int32)
   
 def get_bbox_features(bbox):
 
@@ -501,10 +496,10 @@ def add_bbox_features_to_table(map_ocr_results_table, ocr_entry_id_start = 1, id
   output_columns = [id_column, 'ocr_entry_id', 'text', 'confidence', 'bounding_box', 'bbox_width', 'bbox_width_diff_prop', 'bbox_height', 'bbox_height_diff_prop', 'bbox_reading_direction',  'bbox_center', 'bbox_left_side_center', 'bbox_right_side_center']  
   return map_ocr_results_table[output_columns]
 
+def cv2_contourize(np_bbox): 
+  return np.array(np_bbox).reshape((-1,1,2)).astype(np.int32)
+
 #==================================================================================================#
-
-
-
 
 
 #======================================== CUT / CROP / RE-COMBINE IMAGE ========================================#
@@ -1856,3 +1851,54 @@ def camel_to_snake(x):
         output += '_'+l.lower() if l.isupper() else l
     output = output.strip('_')
     return output
+
+
+def dist_from_point_to_line(line_endpoint_a, line_endpoint_b, point):
+    return np.abs(np.cross(line_endpoint_b - line_endpoint_a, line_endpoint_a - point)) / np.linalg.norm(line_endpoint_b - line_endpoint_a, axis=1)
+
+def get_vector_direction(vector, rounding = 1):
+  """np_arctan2_in_degree (-180 to 180 reference angle is the positive direction of x axis in cartesian space)""" 
+  x, y = vector
+  return np.round(np.arctan2(y, x) * 180 / np.pi, rounding)
+
+
+def add_bbox_feature_columns(df):
+
+    df['bounding_box'] = df['bounding_box'].apply(lambda bbox: np.array(bbox, dtype=np.int32).reshape((-1,2)))
+
+    top_left     = np.array( df['bounding_box'].apply(lambda li: li[0]).tolist() )
+    top_right    = np.array( df['bounding_box'].apply(lambda li: li[1]).tolist() )
+    bottom_right = np.array( df['bounding_box'].apply(lambda li: li[2]).tolist() )
+    bottom_left  = np.array( df['bounding_box'].apply(lambda li: li[3]).tolist() )
+
+    width_arr = ( np.linalg.norm(top_right - top_left, axis=1) + np.linalg.norm(bottom_right - bottom_left, axis=1) )/2
+
+    height_by_different_measures = [ dist_from_point_to_line(bottom_left, bottom_right, top_left),  
+                                    dist_from_point_to_line(bottom_left, bottom_right, top_right),  
+                                    dist_from_point_to_line(top_left, top_right, bottom_left),  
+                                    dist_from_point_to_line(top_left, top_right, bottom_right) ] 
+
+    height_arr = np.nanmean(height_by_different_measures, axis=0)
+
+    bbox_center_arr = (top_left + top_right + bottom_right + bottom_left)/4
+    left_side_center_arr  = (top_left + bottom_left)/2
+    right_side_center_arr = (top_right + bottom_right)/2
+
+    reading_direction_vector = right_side_center_arr - left_side_center_arr
+    reading_direction_arr = np.arctan2(reading_direction_vector[:,1], reading_direction_vector[:,0]) / np.pi * 180
+
+    del top_left, top_right, bottom_right, bottom_left
+
+    df['bbox_width'] = width_arr
+    df['bbox_height'] = height_arr
+    df['bbox_center_arr'] = bbox_center_arr.tolist()
+    df['bbox_left_side_center'] = left_side_center_arr.tolist()
+    df['bbox_right_side_center'] = right_side_center_arr.tolist()
+    df['bbox_reading_direction'] = reading_direction_arr
+
+    df['text_'] = df['text'].apply(unidecode)
+    df.loc[df['text_'].apply(len) == df['text'].apply(len),'text'] = df.loc[df['text_'].apply(len) == df['text'].apply(len),'text_']
+    df['text'] = df['text'].apply(lambda x: re.sub(r'[^\x00-\x7F]','',x)) # r'[^A-Za-z0-9\.\,\-\=\&\']'
+    df = df.drop('text_',axis=1)
+
+    return df
