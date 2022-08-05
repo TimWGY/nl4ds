@@ -1855,46 +1855,6 @@ def camel_to_snake(x):
 
 #######################################################################################################################
 
-def process_plate_number_info(info,image_index):
-    if info.startswith('plate_number_equal_'):
-        info = info.replace('plate_number_equal_','')
-        if info[0]=='-' or info[0]=='+':
-            return str(image_index + eval(info))
-        else:
-            return str(eval(info))
-    elif info.startswith('plate_number_contain_'):
-        info = info.replace('plate_number_contain_','')
-        info = info.replace('x','image_index')
-        return [str(num) for num in eval(info)]
-    else:
-        return info
-
-def process_color_side_info(info,image_index):
-    odd_or_even = 'odd' if image_index % 2 == 1 else 'even'
-    side = [part.split('_')[-1] for part in info.split(', ') if part.startswith(odd_or_even)][0]
-    return side
-
-def create_collection_image_info_df(this_collection_id, plate_number_info, color_side_info):
-    
-    plate_number_info = [row.split(': ') for row in plate_number_info.split('\n') if row!='']
-    plate_number_info = pd.DataFrame(plate_number_info, columns=['image_index','info'])
-    plate_number_info['image_index'] = plate_number_info['image_index'].apply(lambda x: list(range(int(x.split('-')[0]),int(x.split('-')[1])+1) if '-' in x else [int(x)]))
-    plate_number_info = plate_number_info.explode('image_index').reset_index(drop=True)
-    plate_number_info['info'] = plate_number_info[['info','image_index']].apply(lambda row: process_plate_number_info(row['info'],row['image_index']), axis=1)
-
-    color_side_info = [row.split(': ') for row in color_side_info.split('\n') if row!='']
-    color_side_info = pd.DataFrame(color_side_info, columns=['image_index','info'])
-    color_side_info['image_index'] = color_side_info['image_index'].apply(lambda x: list(range(int(x.split('-')[0]),int(x.split('-')[1])+1) if '-' in x else [int(x)]))
-    color_side_info = color_side_info.explode('image_index').reset_index(drop=True)
-    color_side_info['info'] = color_side_info[['info','image_index']].apply(lambda row: process_color_side_info(row['info'],row['image_index']), axis=1)
-
-    image_info_df = pd.merge( plate_number_info.rename(columns={'info':'plate_number_info'}), color_side_info.rename(columns={'info':'color_side_info'}), how='left', on='image_index')
-    image_info_df['color_side_info'] = image_info_df['color_side_info'].fillna('whole')
-    image_info_df['image_id'] = image_info_df['image_index'].apply(lambda x: this_collection_id+'__'+str(x).zfill(3))
-    image_info_df = image_info_df[['image_id', 'image_index', 'plate_number_info', 'color_side_info']]
-
-    return image_info_df
-
 
 def dist_from_point_to_line(line_endpoint_a, line_endpoint_b, point):
     return np.abs(np.cross(line_endpoint_b - line_endpoint_a, line_endpoint_a - point)) / np.linalg.norm(line_endpoint_b - line_endpoint_a, axis=1)
@@ -1936,7 +1896,7 @@ def add_bbox_feature_columns(df):
 
     df['bbox_width'] = width_arr
     df['bbox_height'] = height_arr
-    df['bbox_center_arr'] = bbox_center_arr.tolist()
+    df['bbox_center'] = bbox_center_arr.tolist()
     df['bbox_left_side_center'] = left_side_center_arr.tolist()
     df['bbox_right_side_center'] = right_side_center_arr.tolist()
     df['bbox_reading_direction'] = reading_direction_arr
