@@ -261,8 +261,7 @@ def mark_ms_ocr_result(input_image_filepath, components_df, output_image_filepat
     # text
     plt.text(vertices[1][0], vertices[1][1], ocr_text.rstrip('$'), fontsize=fontsize, color='r', va="top")
 
-    right_side_center = tuple(right_side_center)
-    if right_side_center != None:
+    if right_side_center is not None:
       # right side center dot
       plt.text(right_side_center[0], right_side_center[1], '.', fontsize=8, color='#66FF66', ha='left', va="baseline")
 
@@ -360,7 +359,7 @@ def rotate_180_degree(img_filepath):
 
 def invert_binary(img):
   return cv2.bitwise_not(img)
-def adaptive_threshold(img, size = 9, C = 18):
+def adaptive_threshold(img, size = 9, C = 9):
   return cv2.adaptiveThreshold(img.copy(), 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, size, C)
 def otsu_threshold(img, verbose=False):
   threshold_value, binarized_img = cv2.threshold(img,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
@@ -777,22 +776,33 @@ def imsave(img, filename):
 def get_w_h_ratio(img):
   return img.shape[1]/img.shape[0]
   
-def imshow(img, width = 9, height = None, dpi = 90, title = None, no_axis = False):
+def imshow(img, width = None, height = None, dpi = 90, title = None, no_axis = False):
     
-  w_h_ratio = get_w_h_ratio(img)
-  if height is None:
-    plt.figure(figsize=(width,round(width*w_h_ratio,1)), dpi=dpi)
-  else:
-    plt.figure(figsize=(round(height*w_h_ratio,1),height), dpi=dpi)
-  if no_axis:
-    plt.axis('off')
-  plt.grid(False)
-  if len(img.shape)==2:
-    plt.imshow(img, cmap='gray', vmin=0, vmax=255)
-  else:
-    plt.imshow(img)
-  if title is not None:
-    plt.title(title)
+    w_h_ratio = img.shape[1]/img.shape[0]
+
+    if width is not None:
+        plt.figure(figsize=(width,round(width/w_h_ratio,1)), dpi=dpi)
+    elif height is not None:
+        plt.figure(figsize=(round(height*w_h_ratio,1),height), dpi=dpi)
+    else:
+        if w_h_ratio < 0.8:
+            width = 3
+            plt.figure(figsize=(width,round(width/w_h_ratio,1)), dpi=dpi)
+        else:
+            height = 3
+            plt.figure(figsize=(round(height*w_h_ratio,1),height), dpi=dpi)
+    
+    plt.grid(False)
+    if no_axis:
+        plt.axis('off')
+
+    if len(img.shape)==2:
+        plt.imshow(img, cmap='gray', vmin=0, vmax=255)
+    else:
+        plt.imshow(img)
+
+    if title is not None:
+        plt.title(title)
 
 def save_graph(filename = '', dpi = 150, padding = 0.3, transparent = False, add_title = False, folder = None):
 
@@ -1047,12 +1057,6 @@ def draw_many_contours(img, contours, text_content_list=None, dpi=None, border_w
     else:
       imshow(colored_img)
 
-###### SELECT WITH CONTOURS ######
-def mask_with_contours(img, contours):
-  mask_color = 255 if len(img.shape)==2 else (255,255,255) if len(img.shape)==3 else 255
-  contours_mask = cv2.drawContours(np.zeros(img.shape, dtype=np.uint8), contours, -1, mask_color, -1)
-  masked_img = cv2.bitwise_and(img, contours_mask)
-  return masked_img
 
 ###### CONTOUR I/O WITH CSV ######
 def stringify_contour(contour):
@@ -1276,11 +1280,13 @@ def self_fuzzy_cluster(data, field, correct_term_min_freq=1, scorer=fuzz.partial
 #=================================== DEDUPLICATE OCR RESULT =======================================#
 
 def get_dbscan_labels(data, field, radius = 0.5):
-  clusterer = DBSCAN(eps=radius, algorithm='auto', metric='euclidean', min_samples=2)
-  coorindates_array = np.array(data[field].tolist())
-  clusterer.fit(coorindates_array)
-  clabels = clusterer.labels_
-  return clabels
+    clusterer = DBSCAN(eps=radius, algorithm='auto', metric='euclidean', min_samples=2)
+    coorindates_array = np.array(data[field].tolist())
+    if len(coorindates_array.shape)==1:
+        coorindates_array = coorindates_array.reshape(-1, 1)
+    clusterer.fit(coorindates_array)
+    clabels = clusterer.labels_
+    return clabels
 
 def detect_duplicates(df, minimum_text_area_side_length = 20, minimum_area_thres = None, dbscan_radius = None, fuzzy_scorer=fuzz.partial_ratio, fuzzy_score_cutoff=80, intersection_cover_smaller_shape_by = 0.8, no_numeric = False):
 
@@ -1721,17 +1727,6 @@ def get_min_area_rect_stats(cnt):
     min_area_rect_aspect_ratio = round(max( _w/_h, _h/_w ),2)
     return min_area_rect_center,min_area_rect_aspect_ratio,min_area_rect_angle
 
-
-def crop_to_and_mask_with_contour(img, cnt, return_relative_pos = False):
-    x_min, y_min = cnt.min(axis=0)[0]
-    x_max, y_max = cnt.max(axis=0)[0]
-    cropped_img = img[y_min:y_max+1, x_min:x_max+1]
-    relative_cnt = cnt - np.array([x_min,y_min],dtype=np.int32)
-    masked_img = mask_with_contours(cropped_img, [relative_cnt])
-    if return_relative_pos:
-      return masked_img, x_min, y_min
-    return masked_img
-
 def rgb_to_hsv(img):
   return cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
 
@@ -1765,6 +1760,17 @@ def fast_analyze_color(img, n_clusters, sample_size = 100000, return_classifier 
       return kmeans, centroid_colors_info
 
     return centroid_colors_info
+
+def show_colors(colors):
+    display_width = 100
+    display_height = 20
+    pixel_counts = np.array([tup[0] for tup in colors])
+    color_proportions = np.int0(pixel_counts/pixel_counts.sum()*display_width)
+    color_row = []
+    for i in range(len(colors)):
+        color_row += [colors[i][1][::-1]]*color_proportions[i]
+    color_img = np.array([color_row]*display_height)
+    imshow(color_img,no_axis=True,dpi=50)
 
 def plot_palette(color_info, mode='rgb', width = 1000, height = None, gap_size = None, dpi = 120, font_size = 6, jiggle = False):
     
@@ -1857,13 +1863,23 @@ def camel_to_snake(x):
 
 
 def dist_from_point_to_line(line_endpoint_a, line_endpoint_b, point):
-    return np.abs(np.cross(line_endpoint_b - line_endpoint_a, line_endpoint_a - point)) / np.linalg.norm(line_endpoint_b - line_endpoint_a, axis=1)
+    if len(line_endpoint_a.shape)>1:
+        return np.abs(np.cross(line_endpoint_b - line_endpoint_a, line_endpoint_a - point)) / np.linalg.norm(line_endpoint_b - line_endpoint_a, axis=1)
+    else:
+        return np.abs(np.cross(line_endpoint_b - line_endpoint_a, line_endpoint_a - point)) / np.linalg.norm(line_endpoint_b - line_endpoint_a)
 
 def get_vector_direction(vector, rounding = 1):
   """np_arctan2_in_degree (-180 to 180 reference angle is the positive direction of x axis in cartesian space)""" 
   x, y = vector
   return np.round(np.arctan2(y, x) * 180 / np.pi, rounding)
 
+def get_angle_between_vectors(vector_1, vector_2):
+    unit_vector_1 = vector_1 / np.linalg.norm(vector_1)
+    unit_vector_2 = vector_2 / np.linalg.norm(vector_2)
+    dot_product = np.dot(unit_vector_1, unit_vector_2)
+    angle = np.arccos(dot_product)
+    angle_in_degrees = np.degrees(angle)
+    return angle_in_degrees
 
 def add_bbox_feature_columns(df):
 
