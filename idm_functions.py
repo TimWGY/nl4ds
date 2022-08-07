@@ -799,7 +799,7 @@ def imshow(img, width = None, height = None, dpi = 90, title = None, no_axis = F
     if len(img.shape)==2:
         plt.imshow(img, cmap='gray', vmin=0, vmax=255)
     else:
-        plt.imshow(img)
+        plt.imshow(bgr_to_rgb(img))
 
     if title is not None:
         plt.title(title)
