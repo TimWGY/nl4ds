@@ -1748,7 +1748,7 @@ def fast_analyze_color(img, n_clusters, sample_size = 100000, return_classifier 
     kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(img)
 
     # calculate color codes
-    color_codes = [tuple(c) for c in np.round(kmeans.cluster_centers_).astype(np.uint8)]
+    color_codes = [tuple(c) for c in np.round(kmeans.cluster_centers_).astype(np.int32)]
 
     # count color proportions
     color_pixel_counts = tuple(np.bincount(kmeans.labels_))
