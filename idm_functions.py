@@ -1619,8 +1619,6 @@ def point_list_to_contour(li):
 def contour_to_point_list(cnt):
     return [tuple(pt[0]) for pt in cnt]
 
-def get_min_area_rect_cnt(cnt):
-    return np.int0(cv2.boxPoints(cv2.minAreaRect(cnt)))
 
 def get_min_area_rect_stats(cnt):
     min_area_rect_center, min_area_rect_w_h, min_area_rect_angle=cv2.minAreaRect(cnt)
@@ -1921,6 +1919,7 @@ def add_bbox_feature_columns(df):
     df.loc[df['text_'].apply(len) == df['text'].apply(len),'text'] = df.loc[df['text_'].apply(len) == df['text'].apply(len),'text_']
     df['text'] = df['text'].apply(lambda x: re.sub(r'[^\x00-\x7F]','',x)) # r'[^A-Za-z0-9\.\,\-\=\&\']'
     df = df.drop('text_',axis=1)
+    df['avg_char_width'] = df['bbox_width']/df['text'].apply(lambda x: len(x)-0.5*(x.count('.')))
 
     np.seterr(invalid='warn')
 
