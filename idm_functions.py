@@ -1620,11 +1620,8 @@ def contour_to_point_list(cnt):
     return [tuple(pt[0]) for pt in cnt]
 
 
-def get_min_area_rect_stats(cnt):
-    min_area_rect_center, min_area_rect_w_h, min_area_rect_angle=cv2.minAreaRect(cnt)
-    _w, _h = min_area_rect_w_h
-    min_area_rect_aspect_ratio = round(max( _w/_h, _h/_w ),2)
-    return min_area_rect_center,min_area_rect_aspect_ratio,min_area_rect_angle
+def get_min_area_rect_cnt(cnt):
+    return np.int0(cv2.boxPoints(cv2.minAreaRect(cnt)))
 
 
 def draw_text(img, text, pos, font = cv2.FONT_HERSHEY_SIMPLEX, size = 1, color = 0, thickness = 2, align = 'center', line_type = cv2.LINE_AA):
