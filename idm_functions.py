@@ -1921,3 +1921,226 @@ def add_bbox_feature_columns(df):
     np.seterr(invalid='warn')
 
     return df
+
+
+
+
+####
+
+
+def find_anchor_points(img_meta_df, original_maps_folder, georeferenced_maps_folder):
+    
+    temp_images_folder = '/content/SuperGluePretrainedNetwork/assets/images'
+    temp_results_folder = '/content/temp_results'
+    temp_control_points_folder = '/content/temp_control_points'
+
+    ######################################################################################################################################################
+
+    downscale_target_side_length = 1500
+
+    orig_img_info_list = []
+    geo_img_info_list = []
+
+    image_pairs_to_match = []
+    error_list = []
+
+    # Crop, shrink, and write temporary images
+    for i, row in img_meta_df.iterrows():
+
+        if i%10==0:
+            print(i, end=', ')
+
+        try:
+            
+            this_map_id = row['map_id']
+
+            geo_img_resized_filepath = temp_images_folder+'/'+str(this_map_id)+'_georeferenced.jpg'
+            if not os.path.exists(geo_img_resized_filepath):
+                # Load image
+                geo_img_path = georeferenced_maps_folder+'/'+str(this_map_id)+'.tif'
+                geo_img = reshape_as_image(rasterio.open(geo_img_path).read([1,2,3]))
+                
+                x_start, x_end, y_start, y_end = get_xy_range_without_black_border(geo_img)
+                downscale_ratio = int(np.ceil(max(x_end - x_start, y_end - y_start)/downscale_target_side_length))
+                geo_img_resized, x_start_r, x_end_r, y_start_r, y_end_r = crop_and_downscale(geo_img, downscale_ratio, x_start, x_end, y_start, y_end) 
+
+                geo_img_info_list.append( (this_map_id, x_start, x_end, y_start, y_end, x_start_r, x_end_r, y_start_r, y_end_r, downscale_ratio) )
+
+                # Saving to temporary images folder
+                cv2.imwrite(geo_img_resized_filepath, geo_img_resized)
+
+            last_rotated_img_filepath = temp_images_folder+'/'+str(this_map_id)+'_original_rotated_270.jpg'
+            if not os.path.exists(last_rotated_img_filepath):
+                # Load image
+                orig_img_path = original_maps_folder+'/'+str(this_map_id)+'.jpg'
+                orig_img = cv2.imread(orig_img_path)
+
+                x_start, x_end, y_start, y_end = get_xy_range_without_black_border(orig_img)
+                downscale_ratio = int(np.ceil(max(x_end - x_start, y_end - y_start)/downscale_target_side_length))
+                orig_img_resized, x_start_r, x_end_r, y_start_r, y_end_r = crop_and_downscale(orig_img, downscale_ratio, x_start, x_end, y_start, y_end) 
+                orig_img_info_list.append( (this_map_id, x_start, x_end, y_start, y_end, x_start_r, x_end_r, y_start_r, y_end_r, downscale_ratio) )
+
+                for original_image_orientation in [0,90,180,270]:
+                    rotated_img_filepath = temp_images_folder+'/'+str(this_map_id)+'_original_rotated_'+str(original_image_orientation)+'.jpg'
+                    if original_image_orientation == 0:
+                        rotated_img = orig_img_resized.copy()
+                    else:    
+                        rotated_img = cv2.rotate(orig_img_resized.copy(), cv2.ROTATE_90_CLOCKWISE if original_image_orientation == 90 else cv2.ROTATE_180 if original_image_orientation == 180 else cv2.ROTATE_90_COUNTERCLOCKWISE if original_image_orientation == 270 else None)
+                    # Saving to temporary images folder
+                    cv2.imwrite(rotated_img_filepath, rotated_img)
+                    
+                    image_pairs_to_match.append(  (rotated_img_filepath.split('/')[-1], geo_img_resized_filepath.split('/')[-1]) )
+
+        except Exception as e:
+            print(e)
+            time.sleep(3)
+            error_list.append((this_map_id,e))
+
+    orig_img_info_df = pd.DataFrame(orig_img_info_list, columns = ['map_id']+['orig_img_'+col for col in 'x_start, x_end, y_start, y_end, x_start_r, x_end_r, y_start_r, y_end_r, downscale_ratio'.split(', ')])
+    geo_img_info_df = pd.DataFrame(geo_img_info_list, columns = ['map_id']+['geo_img_'+col for col in 'x_start, x_end, y_start, y_end, x_start_r, x_end_r, y_start_r, y_end_r, downscale_ratio'.split(', ')])
+
+    img_meta_df = pd.merge(img_meta_df, orig_img_info_df, how='left')
+    img_meta_df = pd.merge(img_meta_df, geo_img_info_df, how='left')
+
+    ######################################################################################################################################################
+
+    hq_match_count_by_orient_list = []
+    point_match_confidence_threshold = 0.9
+
+    for original_image_orientation in [0,90,180,270]:
+
+        image_pairs_to_match_in_this_orientation = [tup for tup in image_pairs_to_match if '_'+str(original_image_orientation) in tup[0]]
+
+        # Write pairs into text input file
+        with open('/content/SuperGluePretrainedNetwork/assets/image_pairs_to_match.txt','w') as f:
+            f.write('\n'.join([(orig+' '+geo+' '+' 0 0 ') for orig,geo in image_pairs_to_match_in_this_orientation]))
+
+        # Match
+        os.system('./match_pairs.py --max_keypoints 2000 --resize -1 --superglue outdoor')
+
+        # Store matching info as CSV
+        for match_result_filepath in glob('/content/SuperGluePretrainedNetwork/image_pairs_match_results/*.npz'):
+            this_map_id = int(match_result_filepath.split('/')[-1].split('_')[0])
+            npz = np.load(match_result_filepath)
+            keypoints1_array = npz['keypoints1'].astype(np.int32)
+            result_df = pd.DataFrame(zip(npz['keypoints0'].astype(np.int32),npz['matches'],npz['match_confidence']), columns = ['keypoints0', 'matches', 'match_confidence'])
+            result_df['keypoints0'] = result_df['keypoints0'].apply(tuple)
+            result_df['keypoints1'] = result_df['matches'].apply(lambda x: (np.nan, np.nan) if x==-1 else tuple(keypoints1_array[x]))
+            result_df['match_confidence'] = np.round(result_df['match_confidence'], 3)
+            result_df['map_id'] = this_map_id
+            result_df = result_df[['map_id', 'keypoints0', 'keypoints1', 'match_confidence']]
+            result_df.to_csv(temp_results_folder+'/'+str(this_map_id)+'_matching_'+str(original_image_orientation)+'_0.csv',index=False)
+            time.sleep(0.05)
+
+            # Track high_quality_match_count for this map and this orientation
+            high_quality_match_count = (result_df['match_confidence']>=point_match_confidence_threshold).sum()
+            hq_match_count_by_orient_list.append( (this_map_id, original_image_orientation, high_quality_match_count) )
+
+            os.remove(match_result_filepath)
+        
+        time.sleep(1)
+
+
+    hq_match_count_df = pd.DataFrame(hq_match_count_by_orient_list, columns = ['map_id', 'best_orig_img_orientation_for_matching', 'high_quality_match_ratio'])
+    hq_match_count_df['high_quality_match_ratio'] = (hq_match_count_df['high_quality_match_ratio']/2000).round(3)
+    hq_match_count_df = hq_match_count_df.sort_values('high_quality_match_ratio', ascending=False).drop_duplicates(subset=['map_id'],keep='first')
+
+    img_meta_df = pd.merge(img_meta_df, hq_match_count_df, how='left')
+
+    ######################################################################################################################################################
+
+    for _, row in img_meta_df.iterrows():
+
+        this_map_id = row['map_id']
+        best_orientation = row['best_orig_img_orientation_for_matching']
+        orig_img_downscale_ratio = row['orig_img_downscale_ratio']
+        geo_img_downscale_ratio = row['geo_img_downscale_ratio']
+        orig_img_x_end_r = row['orig_img_x_end_r']
+        orig_img_y_end_r = row['orig_img_y_end_r']
+        geo_img_x_start_r = row['geo_img_x_start_r']
+        geo_img_y_start_r = row['geo_img_y_start_r']
+
+        best_matching_table_filepath = temp_results_folder + '/' + str(this_map_id) + '_matching_'+str(best_orientation)+'_0.csv'
+        matching_table = pd.read_csv(best_matching_table_filepath, converters={'keypoints0':eval,'keypoints1':lambda x: eval(x.replace('nan','np.nan'))})
+
+        matching_table['keypoints0'] = matching_table['keypoints0'].apply(lambda tup: (orig_img_downscale_ratio*tup[0], orig_img_downscale_ratio*tup[1]))
+        matching_table['keypoints1'] = matching_table['keypoints1'].apply(lambda tup: (geo_img_downscale_ratio*tup[0], geo_img_downscale_ratio*tup[1]))
+
+        if best_orientation == 90:
+            matching_table['keypoints0'] = matching_table['keypoints0'].apply(lambda tup: (tup[1] , orig_img_y_end_r - tup[0]))
+        elif best_orientation == 180:
+            matching_table['keypoints0'] = matching_table['keypoints0'].apply(lambda tup: (orig_img_x_end_r - tup[0] , orig_img_y_end_r - tup[1]))
+        elif best_orientation == 270:
+            matching_table['keypoints0'] = matching_table['keypoints0'].apply(lambda tup: (orig_img_x_end_r - tup[1] , tup[0]))
+        
+        matching_table['keypoints1'] = matching_table['keypoints1'].apply(lambda tup: (geo_img_x_start_r+tup[0], geo_img_y_start_r+tup[1]))
+        matching_table['keypoints1'] = matching_table['keypoints1'].apply(str).replace('(nan, nan)','(np.nan, np.nan)')
+
+        matching_table['matching_id'] = range(1, len(matching_table)+1)
+        matching_table = matching_table[['map_id', 'matching_id', 'keypoints0', 'keypoints1', 'match_confidence']]
+        
+        matching_table.to_csv(temp_control_points_folder + '/' + str(this_map_id) + '_matching.csv', index=False)
+
+    ######################################################################################################################################################
+
+    control_points_table_filepath_list = []
+
+    for this_map_id in img_meta_df['map_id'].tolist():
+    
+        this_map_matching_table = pd.read_csv(temp_control_points_folder+'/'+str(this_map_id)+'_matching.csv')
+        
+        this_map_matching_table = this_map_matching_table[this_map_matching_table['match_confidence']>0.9]
+        if len(this_map_matching_table) < 4*2: # at least 8 pairs of credible matched points
+            continue
+        
+        mode_of_confidence_values_above_90 = min(this_map_matching_table['match_confidence'].mode())
+        control_points_table = this_map_matching_table[this_map_matching_table['match_confidence']>=mode_of_confidence_values_above_90]
+        control_points_table_filepath = temp_control_points_folder+'/'+str(this_map_id)+'_control_points.csv'
+        control_points_table_filepath_list.append(control_points_table_filepath)
+        control_points_table.to_csv(control_points_table_filepath, index=False)
+
+
+    ######################################################################################################################################################
+
+    map_id_to_orig_img_width_mapping = create_mapping_from_df(img_meta_df, 'map_id', 'orig_img_x_end_r')
+    map_id_to_orig_img_height_mapping = create_mapping_from_df(img_meta_df, 'map_id', 'orig_img_y_end_r')
+
+    map_id_and_anchor_points_list = []
+
+    for p in control_points_table_filepath_list:
+
+        this_map_id = int(p.split('/')[-1].split('_')[0])
+
+        matching_table = pd.read_csv(p, converters={'keypoints0':eval,'keypoints1':eval})
+        matching_table = matching_table.set_index('matching_id')
+        matching_id_to_orig_point_mapping = matching_table['keypoints0'].to_dict()
+
+        orig_img_width = map_id_to_orig_img_width_mapping[this_map_id]
+        orig_img_height = map_id_to_orig_img_height_mapping[this_map_id]
+
+        anchor_point_id_list = []
+        for corner_point in [ (0,0), (orig_img_width,0), (0,orig_img_height), (orig_img_width,orig_img_height) ]:
+            anchor_point_id_list.append( distances_to_point(matching_table, 'keypoints0', corner_point).idxmin() )
+            # Do not select point that is close to an existing anchor point, because more spread-out anchors produce more robust perspective transform matrix
+            # The step below removes the points that are close the anchor just selected
+            matching_table = matching_table[(distances_to_point(matching_table, 'keypoints0', matching_id_to_orig_point_mapping[anchor_point_id_list[-1]]) > 1000) | (matching_table.index.isin(anchor_point_id_list))]
+        anchors_table = matching_table[matching_table.index.isin(anchor_point_id_list)]
+        
+        if len(anchors_table)!=4:
+            print('Only',len(anchors_table),'anchors for map_id',this_map_id)
+            continue
+    
+        anchor_points = anchors_table['keypoints0'].tolist() + anchors_table['keypoints1'].tolist()
+        map_id_and_anchor_points_list.append((this_map_id, anchor_points))
+
+    anchor_points_df = pd.DataFrame(map_id_and_anchor_points_list, columns=['map_id','anchor_points'])
+
+    img_meta_df = img_meta_df.merge(anchor_points_df, how='left') # maps without anchor points will have NaN
+
+    img_meta_df['image_matching_code_version'] = 'v20220614'
+
+    img_meta_df['image_matching_run_version'] = 'v20221205'
+
+    ######################################################################################################################################################
+
+    return img_meta_df
