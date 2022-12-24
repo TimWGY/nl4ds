@@ -175,7 +175,7 @@ if need_ocr_call[0].lower() == 'y':
   computervision_client = ComputerVisionClient(input('\nEndpoint?\n'), CognitiveServicesCredentials(input('\nKey?\n')))
 clear_output()
 
-def get_ms_ocr_result(read_image_path, wait_interval=10): 
+def get_ms_ocr_result(read_image_path, wait_interval=10, language = None): 
 
   # Open the image
   if read_image_path.endswith('.jp2'):
@@ -190,7 +190,7 @@ def get_ms_ocr_result(read_image_path, wait_interval=10):
     read_image = open(read_image_path, "rb")
 
   # Call API with image and raw response (allows you to get the operation location)
-  read_response = computervision_client.read_in_stream(read_image, raw=True)
+  read_response = computervision_client.read_in_stream(read_image, raw=True, language=language, reading_order='natural')
   # Get the operation location (URL with ID as last appendage)
   read_operation_location = read_response.headers["Operation-Location"]
   # Take the ID off and use to get results
@@ -290,11 +290,11 @@ def read_dict_from_json(filepath):
 
 ############# QUICK ACCESS OCR #############
 
-def ms_ocr(img_path, mark_image = True, show_numeric = False, fontsize = 10, figsize = (20,20), dpi = 150, clear_plot=False, wait_interval = 10):
+def ms_ocr(img_path, mark_image = True, show_numeric = False, fontsize = 10, figsize = (20,20), dpi = 150, clear_plot=False, wait_interval = 10, language=None):
 
   raw_ocr_result_filepath = img_path.split('.')[0] + '_raw_ocr_result.txt'
   if not os.path.exists(raw_ocr_result_filepath):
-    result = get_ms_ocr_result(img_path, wait_interval = wait_interval)
+    result = get_ms_ocr_result(img_path, wait_interval = wait_interval, language = language)
     save_dict_to_json(result, raw_ocr_result_filepath)
   else:
     print('Raw OCR result found.')
