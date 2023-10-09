@@ -5,11 +5,12 @@ clear_output()
 
 from ipumspy import IpumsApiClient, UsaExtract, readers
 IPUMS_API_KEY = input("Your IPUMS API Key: (Acquire it at https://account.ipums.org/api_keys if you don't have one yet)")
+clear_output()
 ipums = IpumsApiClient(IPUMS_API_KEY)
 
 from pathlib import Path
 DOWNLOAD_DIR = Path(input('Please specify the folder in which you plan to save the downloaded extract (full path): ').strip())
-clear_output()
+
 
 import pandas as pd
 import numpy as np
