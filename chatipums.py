@@ -12,6 +12,16 @@ from pathlib import Path
 DOWNLOAD_DIR = Path(input('Please specify the folder in which you plan to save the downloaded extract (full path): ').strip())
 
 
+#TODO: actually we might need a separate function for each input() call, that will handle all the checks
+if not DOWNLOAD_DIR.exists():
+    choice = input(f'The folder {DOWNLOAD_DIR} does not exist. Do you want to create it? [y/n]')
+
+    if len(choice) > 0 and choice.lower()[0] == 'y':
+        DOWNLOAD_DIR.mkdir()
+    else:
+        print('Please specify a valid folder.')
+
+
 import pandas as pd
 import numpy as np
 import re
@@ -22,7 +32,7 @@ pd.set_option('display.max_colwidth', 200)
 pd.set_option('chained_assignment',None)
 
 def flatten_list(l):
-    return [item for sublist in l for item in sublist] 
+    return [item for sublist in l for item in sublist]
 
 from google.colab import data_table
 
@@ -99,7 +109,7 @@ def submit_extract():
             break
 
     extract_description = input('Please describe this extract: ')
-    
+
     filter_info_pairs = []
     start_filter_decision = input('Do you want to filter the sample by limiting it to only records with certain values for certain variables? [y/n]')
     if start_filter_decision.lower()[0]=='y':
@@ -114,7 +124,7 @@ def submit_extract():
                     variable_error = True
                 if not variable_error:
                     break
-            
+
             variable_values_to_filter_with = input(f'''Which values of this variable to include? Please use the codes instead of textual label (e.g. for CITY variable, use 4610,4611 instead of
 New York,Brooklyn). Value codes should be comma separated, unless the values are a numeric range, in which case you should use "begin:end"
 format (e.g. for AGE variable, use 15:64 to include values between 15 and 64, both ends inclusive). You may look up value codes at
@@ -124,11 +134,11 @@ https://usa.ipums.org/usa-action/variables/{variable_code_to_filter_by}#codes_se
                 variable_values_to_filter_with = list(map(str, range(range_start,range_start+1)))
             else:
                 variable_values_to_filter_with = variable_values_to_filter_with.split(',')
-            
+
             filter_info_pairs.append((variable_code_to_filter_by,variable_values_to_filter_with))
             if variable_code_to_filter_by not in variables_list:
                 variables_list.append(variable_code_to_filter_by)
-            
+
             end_filter_decision = input('Filter added successfully. Do you have more filters to add? [y/n]')
             if end_filter_decision.lower()[0]=='n':
                 break
@@ -145,19 +155,19 @@ https://usa.ipums.org/usa-action/variables/{variable_code_to_filter_by}#codes_se
             return submit_extract()
         if create_decision.lower()[0]=='y':
             break
-        
+
     extract = UsaExtract(
         sample_id_list,
         variables_list,
         data_format="csv",
         description=extract_description
     )
-    
+
     for variable_code_to_filter_by, variable_values_to_filter_with in filter_info_pairs:
         extract.select_cases(variable_code_to_filter_by,
                              variable_values_to_filter_with,
                              general=True) # only general codes supported for now since it would be enough foor most use cases
-    
+
     submit_decision = input('\nExtract information confirmed. Are you ready to submit this extract to IPUMS server? [y/n]')
     if submit_decision.lower()[0] == 'y':
         extract_id = ipums.submit_extract(extract)
@@ -171,17 +181,17 @@ https://usa.ipums.org/usa-action/variables/{variable_code_to_filter_by}#codes_se
     return extract
 
 def retrieve_extract():
-    
+
     extract_id = input('What is the extract id: ')
-    
+
     # TODO: check if the extract has been downloaded already
-    
+
     try:
         is_expired = ipums.extract_is_expired(collection="usa", extract=extract_id)
     except Exception as e:
         print(str(e))
         return None
-    
+
     if is_expired:
         resubmit_decision = input('This extract has expired. Would you like to get a new extract following the same specification? [y/n]')
         if resubmit_decision.lower()[0] == 'y':
@@ -205,7 +215,7 @@ def load_extract():
     extract_id = input('What is the extract id: ')
 
     drop_preselected_fields_decision = input('Would you like to drop preselected fields? [y/n]')
-    
+
     decode_decision = input('Would you like to decode the data, i.e. convert codes to human-readable values? [y/n]')
 
     print('Processing ...')
