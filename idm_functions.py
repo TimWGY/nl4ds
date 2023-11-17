@@ -2144,3 +2144,60 @@ def find_anchor_points(img_meta_df, original_maps_folder, georeferenced_maps_fol
     ######################################################################################################################################################
 
     return img_meta_df
+
+
+
+
+####################################################################################################
+# Temporary Additions for NC Imagery Project
+####################################################################################################
+
+def filter_out_contained_contours(contours, overlay_threshold = 0.5, return_drop_indices = False):
+    total_contour_count = len(contours)
+    indices_of_contour_to_drop = []
+    for i in range(total_contour_count):
+        small_contour = contours[i]
+        for j in range(i+1, total_contour_count):
+            large_contour = contours[j]        
+            small_poly = shapely_polygon(small_contour.reshape(-1,2))
+            large_poly = shapely_polygon(large_contour.reshape(-1,2))
+            if small_poly.intersection(large_poly).area > overlay_threshold * small_poly.area:
+                indices_of_contour_to_drop.append(i)
+    filtered_contours = [cnt for i, cnt in enumerate(contours) if i not in indices_of_contour_to_drop]
+    if return_drop_indices:
+        return filtered_contours, indices_of_contour_to_drop
+    return filtered_contours
+
+####################################################################################################
+
+gray_to_bgr = grey_to_bgr
+bgr_to_gray = bgr_to_grey
+
+color_name_to_bgr_code_mapping = {'red': (0,0,255), 'green': (0,255,0), 'blue': (255,0,0)}
+
+def draw_contours(input_img, cnts, border_color = 'rainbow', border_width = 2):
+    if border_color == 'rainbow':
+        n_colors = 5
+        color_range = range(1,n_colors*19+1,n_colors)
+        border_color_list = [hsv2bgr(num/100) for num in color_range]
+    else:
+        border_color = color_name_to_bgr_code_mapping.get(border_color, border_color)
+    output_img = input_img.copy()
+    if (border_color=='rainbow' or not isinstance(border_color,int)) and len(output_img.shape)==2:
+        output_img = gray_to_bgr(output_img)
+    for i in range(len(cnts)):
+        color = border_color_list[i%n_colors] if border_color == 'rainbow' else border_color
+        output_img = cv2.drawContours(output_img, cnts, i, color, border_width)
+    return output_img
+
+def make_point_int(pt):
+    return (int(round(pt[0])),int(round(pt[1])))
+
+def contour_to_point_list(cnt):
+    return [make_point_int(pt[0]) for pt in cnt]
+
+def point_list_to_contour(li):
+    return np.array([[pt] for pt in li], dtype=np.int32)
+
+def get_min_area_rect_contour(cnt):
+    return np.round(cv2.boxPoints(cv2.minAreaRect(cnt))).astype(int).reshape(-1,1,2)
