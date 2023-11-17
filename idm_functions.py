@@ -53,6 +53,16 @@ from shapely.geometry import Point as shapely_point
 from shapely.geometry import LineString as shapely_line_string
 from shapely.validation import make_valid as shapely_make_valid
 
+import h5py
+from glob2 import iglob
+import geopandas as gpd
+from shapely.ops import unary_union as shapely_unary_union
+pd.set_option('chained_assignment',None)
+pd.set_option('display.max_columns', 100)
+pd.set_option('display.max_rows', 100)
+pd.set_option('display.max_colwidth', 200)
+pd.set_option('chained_assignment',None)
+
 if 'rasterio' not in installed_libraries:
   os.system('pip install rasterio')
 import rasterio
