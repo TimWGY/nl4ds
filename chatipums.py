@@ -253,6 +253,7 @@ def load_extract():
             temp_df = temp_df[['OCC','Occupation','year_group']]
             temp_df = temp_df.dropna(subset=['OCC'])
             temp_df = temp_df[~temp_df['OCC'].apply(lambda x: x[0].isalpha())]
+            temp_df['OCC'] = temp_df['OCC'].astype(int)
             year_to_year_group_mapping = {1850:1880,1860:1880,1870:1880,1880:1880,1890:1880,1900:1880,1910:1920,1920:1920,1930:1930,1940:1940}
             yr_part_list = []
             for yr, yr_part in df.groupby('YEAR'):
