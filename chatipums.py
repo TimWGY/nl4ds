@@ -230,6 +230,8 @@ def load_extract():
 
     ddi_df['largely_numeric'] = ddi_df['codes'].apply(lambda dic: np.mean([k==str(v) for k,v in dic.items()])>0.9)
     ddi_df['codes'] = ddi_df['codes'].apply(lambda x: {v:k for k,v in x.items()} if isinstance(x,dict) else np.nan)
+    ddi_df.loc[ddi_df['codes'].apply(lambda dic: len(set(dic.keys()).difference({None}))==0),'codes'] = np.nan
+
 
     print('\nExtract loaded succesfully.')
     print('-'*140+'\n\nSamples:\n\n\t'+'\n\t'.join(ddi.samples_description)+'\n')
