@@ -259,6 +259,7 @@ def load_extract():
                 yr_group = year_to_year_group_mapping[yr]
                 yr_group_decoding_dict = temp_df.query('year_group == @yr_group').set_index('OCC')['Occupation'].to_dict()
                 yr_part['OCC'] = yr_part['OCC'].map(yr_group_decoding_dict).fillna('Not included in codes')
+                yr_part_list.append(yr_part)
             df = pd.concat(yr_part_list, ignore_index=True)
 
     return df, ddi_df
