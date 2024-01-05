@@ -242,26 +242,24 @@ def load_extract():
 
     if decode_decision.lower()[0] == 'y':
         for _, row in ddi_df.query('codes.notnull() & ~largely_numeric').iterrows():
-            if row['id'] == "OCC": # special handling, see documentation: https://usa.ipums.org/usa-action/variables/OCC#codes_section
-                temp_df_list = []
-                for year_group in [1880, 1920, 1930, 1940]:
-                    temp_df = pd.concat(pd.read_html(f'https://usa.ipums.org/usa/volii/occ{year_group}.shtml'))
-                    temp_df['year_group'] = year_group
-                    temp_df_list.append(temp_df)
-                temp_df = pd.concat(temp_df_list, ignore_index=True)
-                temp_df = temp_df[['OCC','Occupation','year_group']]
-                temp_df = temp_df.dropna(subset=['OCC'])
-                temp_df = temp_df[~temp_df['OCC'].apply(lambda x: x[0].isalpha())]
-                year_to_year_group_mapping = {1850:1880,1860:1880,1870:1880,1880:1880,1890:1880,1900:1880,1910:1920,1920:1920,1930:1930,1940:1940}
-                yr_part_list = []
-                for yr, yr_part in df.groupby('YEAR'):
-                    yr_group = year_to_year_group_mapping[yr]
-                    yr_group_decoding_dict = temp_df.query('year_group == @yr_group').set_index('OCC')['Occupation'].to_dict()
-                    yr_part['OCC'] = yr_part['OCC'].map(yr_group_decoding_dict).fillna('Not included in codes')
-                df = pd.concat(yr_part_list, ignore_index=True)
-            else:
-                df[row['id']] = df[row['id']].map(row['codes']).fillna('Not included in codes')
-
+            df[row['id']] = df[row['id']].map(row['codes']).fillna('Not included in codes')
+        if "OCC" in ddi_df['id'].tolist(): # special handling, see documentation: https://usa.ipums.org/usa-action/variables/OCC#codes_section
+            temp_df_list = []
+            for year_group in [1880, 1920, 1930, 1940]:
+                temp_df = pd.concat(pd.read_html(f'https://usa.ipums.org/usa/volii/occ{year_group}.shtml'))
+                temp_df['year_group'] = year_group
+                temp_df_list.append(temp_df)
+            temp_df = pd.concat(temp_df_list, ignore_index=True)
+            temp_df = temp_df[['OCC','Occupation','year_group']]
+            temp_df = temp_df.dropna(subset=['OCC'])
+            temp_df = temp_df[~temp_df['OCC'].apply(lambda x: x[0].isalpha())]
+            year_to_year_group_mapping = {1850:1880,1860:1880,1870:1880,1880:1880,1890:1880,1900:1880,1910:1920,1920:1920,1930:1930,1940:1940}
+            yr_part_list = []
+            for yr, yr_part in df.groupby('YEAR'):
+                yr_group = year_to_year_group_mapping[yr]
+                yr_group_decoding_dict = temp_df.query('year_group == @yr_group').set_index('OCC')['Occupation'].to_dict()
+                yr_part['OCC'] = yr_part['OCC'].map(yr_group_decoding_dict).fillna('Not included in codes')
+            df = pd.concat(yr_part_list, ignore_index=True)
 
     return df, ddi_df
 
